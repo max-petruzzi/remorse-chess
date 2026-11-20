@@ -8,6 +8,9 @@ move a bishop onto any square touching the guilty piece and it is absolved.
 Play on your phone against a built-in bot (three levels), against Claude, or
 pass-and-play with a friend.
 
+**Play:** https://max-petruzzi.github.io/remorse-chess/ (open on your phone, then
+Share → Add to Home Screen to install it; it works offline).
+
 ## Rules
 
 1. Capturing makes a piece guilt-ridden.
