@@ -168,6 +168,31 @@ async function playGame(page, opts, rand) {
   const castled = await page.evaluate(() => window.__remorse.state().history.slice(-2));
   assert.deepStrictEqual(castled, ['O-O', 'O-O'], 'both ways of castling work');
 
+  // Drag and drop, including castling by dragging the king.
+  const centre = async (n) => {
+    const sqi = (n.charCodeAt(1) - 49) * 8 + (n.charCodeAt(0) - 97);
+    const b = await page.locator(`[data-sq="${sqi}"]`).boundingBox();
+    return [b.x + b.width / 2, b.y + b.height / 2];
+  };
+  const drag = async (a, b) => {
+    const [x1, y1] = await centre(a), [x2, y2] = await centre(b);
+    await page.mouse.move(x1, y1); await page.mouse.down();
+    await page.mouse.move((x1 + x2) / 2, (y1 + y2) / 2, { steps: 4 });
+    await page.mouse.move(x2, y2, { steps: 4 });
+    await page.mouse.up();
+  };
+  const hist = () => page.evaluate(() => window.__remorse.state().history);
+  await page.evaluate(() => window.__remorse.newGame('human', 'w'));
+  await drag('e2', 'e5');
+  assert.deepStrictEqual(await hist(), [], 'an illegal drop snaps back');
+  await drag('e2', 'e4'); await drag('e7', 'e5'); await drag('g1', 'f3'); await drag('g8', 'f6');
+  await drag('f1', 'c4'); await drag('f8', 'c5');
+  await drag('e1', 'g1'); // king two squares
+  await drag('e8', 'h8'); // king onto the rook
+  assert.deepStrictEqual((await hist()).slice(-4), ['Bc4', 'Bc5', 'O-O', 'O-O'], 'dragging moves pieces and castles');
+  await page.click('[data-sq="11"]'); await page.click('[data-sq="27"]');
+  assert.strictEqual((await hist()).pop(), 'd4', 'tapping still works after dragging');
+
   assert.ok(guiltSeen, 'guilt tokens appeared during play');
   assert.deepStrictEqual(errors, [], 'no console errors');
   console.log('E2E OK');

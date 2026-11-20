@@ -101,17 +101,26 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
   grid-template-rows: repeat(8, 1fr);
   width: 100%; height: 100%;
   border-radius: 8px;
-  overflow: hidden;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.5);
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
 }
 .sq { position: relative; border: 0; padding: 0; margin: 0; display: block; cursor: pointer; min-width: 0; min-height: 0; }
+.sq:nth-child(1) { border-top-left-radius: 8px; }
+.sq:nth-child(8) { border-top-right-radius: 8px; }
+.sq:nth-child(57) { border-bottom-left-radius: 8px; }
+.sq:nth-child(64) { border-bottom-right-radius: 8px; }
 .sq.light { background: var(--sq-light); }
 .sq.dark { background: var(--sq-dark); }
-.sq.last::before { content: ""; position: absolute; inset: 0; background: rgba(227, 180, 88, 0.3); pointer-events: none; }
-.sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(227, 180, 88, 0.62); pointer-events: none; }
-.sq.hint { box-shadow: inset 0 0 0 3px var(--gold); }
+.sq.last::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(227, 180, 88, 0.3); pointer-events: none; }
+.sq.sel::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(227, 180, 88, 0.62); pointer-events: none; }
+.sq.drag-from { z-index: 20; }
+.sq.drag-over { box-shadow: inset 0 0 0 4px var(--gold); }
+.piece.dragging { z-index: 30; }
+.piece.dragging .pc { filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.45)); }
+.piece.dragging .token { opacity: 0; }
 .sq.check::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(220, 45, 70, 0.85) 0%, rgba(220, 45, 70, 0.4) 50%, transparent 75%); pointer-events: none; }
 .coord { position: absolute; font-size: 9px; font-weight: 600; line-height: 1; pointer-events: none; opacity: 0.8; z-index: 1; }
 .coord.file { right: 3px; bottom: 2px; }
@@ -178,7 +187,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
 .promo-row button:hover { box-shadow: 0 0 0 3px var(--gold); }
 
 /* Status, Claude note, dock */
-.status { display: flex; align-items: center; gap: 10px; flex: none; min-height: 40px; font-size: 0.95rem; font-weight: 500; }
+.status { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; font-size: 0.95rem; font-weight: 500; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-dim); flex: none; }
 .status.thinking .status-dot { background: var(--gold); animation: pulse 1s ease-in-out infinite; }
 .status.alert .status-dot { background: var(--wax); box-shadow: 0 0 8px var(--wax); }
@@ -199,23 +208,8 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
 .absolve-bar::-webkit-scrollbar { display: none; }
 .absolve-bar .btn { flex: none; padding: 9px 14px; white-space: nowrap; }
 .absolve-bar .hint { color: var(--ink-dim); font-size: 0.8rem; white-space: nowrap; }
-.moves-strip { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; height: 38px; display: flex; align-items: center; }
-.moves {
-  list-style: none; margin: 0; padding: 0 12px;
-  display: flex; gap: 12px; align-items: center;
-  overflow-x: auto; scrollbar-width: none; white-space: nowrap;
-  font-size: 0.85rem; font-variant-numeric: tabular-nums; width: 100%;
-}
-.moves::-webkit-scrollbar { display: none; }
-.moves:empty::before { content: "Moves will appear here"; color: var(--ink-dim); }
-.moves li { display: inline-flex; gap: 6px; align-items: center; flex: none; }
-.moves .num { color: var(--ink-dim); }
-.moves .mv.cur { color: var(--gold); font-weight: 600; }
-.mv .cap { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--wax); margin-left: 3px; vertical-align: 1px; }
-.mv .abs { color: var(--gold); margin-left: 2px; }
-
 /* Tools */
-.tools { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tools { flex: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .tool {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   height: 44px; border-radius: 12px; border: 1px solid var(--line);

@@ -22,7 +22,8 @@
     lastEntry: null,
     claudeNote: '',
     claudeAbort: null,
-    hint: null,
+    drag: null,
+    noSlide: false,
     overShown: false,
   };
 
@@ -186,12 +187,12 @@
         el.appendChild(mark);
         label += tk === 'absolve' ? ', can be absolved' : tk === 'capture' ? ', capture' : tk === 'castle' ? ', castle here' : ', move here';
       }
-      el.classList.toggle('hint', !!S.hint && (sq === S.hint.from || sq === S.hint.to));
       el.setAttribute('aria-label', label);
     }
 
     // Slide animation for the last move.
-    if (anim && last && !(mFlags(last.move) & F_ABSOLVE) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const slide = !S.noSlide; S.noSlide = false;
+    if (slide && anim && last && !(mFlags(last.move) & F_ABSOLVE) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const fromEl = squareEl(mFrom(last.move)), toEl = squareEl(mTo(last.move));
       const piece = toEl.querySelector('.piece');
       if (piece) {
@@ -219,13 +220,11 @@
     }
     if (absolves.length) bar.insertAdjacentHTML('beforeend', '<span class="hint">Uses your turn</span>');
     bar.hidden = absolves.length === 0;
-    $('moves-strip').hidden = absolves.length > 0;
+    $('status').hidden = absolves.length > 0;
 
     renderBars(status);
     renderStatus(status);
-    renderMoves();
     $('btn-undo').disabled = !canUndo();
-    $('btn-hint').disabled = status.over || !isHumanTurn() || S.thinking;
     $('claude-note').hidden = !S.claudeNote;
     $('claude-text').textContent = S.claudeNote;
   }
@@ -284,35 +283,11 @@
     $('status-text').textContent = text;
   }
 
-  function renderMoves() {
-    const ol = $('moves');
-    const h = S.game.history;
-    const startBlack = S.game.startFen.split(' ')[1] === 'b';
-    const items = [];
-    const fmt = (e, i) => {
-      if (!e) return '<span class="mv"></span>';
-      const extra = (e.info.captured ? '<i class="cap" title="capture"></i>' : '') +
-        ((e.info.absolved.length) ? '<span class="abs" title="absolution">✦</span>' : '');
-      return `<span class="mv${i === h.length - 1 ? ' cur' : ''}">${e.san}${extra}</span>`;
-    };
-    let i = 0, num = 1;
-    if (startBlack && h.length) {
-      items.push(`<li><span class="num">${num}.</span><span class="mv">…</span>${fmt(h[0], 0)}</li>`);
-      i = 1; num++;
-    }
-    for (; i < h.length; i += 2, num++) {
-      items.push(`<li><span class="num">${num}.</span>${fmt(h[i], i)}${fmt(h[i + 1], i + 1)}</li>`);
-    }
-    ol.innerHTML = items.join('');
-    ol.scrollLeft = ol.scrollWidth;
-  }
-
   /* ---------- game flow ---------- */
   function commit(m) {
     S.token++;
     S.lastEntry = S.game.play(m);
     S.selected = -1;
-    S.hint = null;
     render(true);
     save();
     afterMove();
@@ -479,22 +454,119 @@
   }
 
   /* ---------- input ---------- */
-  function onSquare(sq) {
-    if (S.thinking || S.game.status().over || !isHumanTurn() || S.pendingPromo) return;
+  const canAct = () => !(S.thinking || S.game.status().over || !isHumanTurn() || S.pendingPromo);
+
+  /* Legal ways to go from the selected square to `sq` (a rook square counts for castling). */
+  function movesTo(sq) {
+    if (S.selected < 0) return [];
     const pos = S.game.pos;
+    const legal = legalFromSelected();
+    const cands = legal.filter((m) => mTo(m) === sq && !(mFlags(m) & F_ABSOLVE));
+    if (cands.length) return cands;
     const p = pos.board[sq];
-    if (S.selected >= 0) {
-      const cands = legalFromSelected().filter((m) => mTo(m) === sq && !(mFlags(m) & F_ABSOLVE));
-      if (cands.length > 1) { showPromo(cands); return; }
-      if (cands.length === 1) { commit(cands[0]); return; }
+    if (p && E.typeOf(p) === E.ROOK && E.colorOf(p) === pos.turn && E.typeOf(pos.board[S.selected]) === E.KING) {
+      return legal.filter((m) => (mFlags(m) & E.F_CASTLE) && (mTo(m) > S.selected) === (sq > S.selected));
     }
-    if (S.selected >= 0 && p && E.typeOf(p) === E.ROOK && E.colorOf(p) === pos.turn && E.typeOf(pos.board[S.selected]) === E.KING) {
-      const castle = legalFromSelected().find((m) => (mFlags(m) & E.F_CASTLE) && (mTo(m) > S.selected) === (sq > S.selected));
-      if (castle !== undefined) { commit(castle); return; }
-    }
+    return [];
+  }
+
+  function play(cands, dropped) {
+    if (cands.length > 1) { render(false); showPromo(cands); return; }
+    S.noSlide = !!dropped;
+    commit(cands[0]);
+  }
+
+  /* A tap on a square (also used for keyboard activation). */
+  function onSquare(sq) {
+    if (!canAct()) return;
+    const pos = S.game.pos;
+    const cands = movesTo(sq);
+    if (cands.length) { play(cands, false); return; }
+    const p = pos.board[sq];
     if (p && E.colorOf(p) === pos.turn && sq !== S.selected) S.selected = sq;
     else S.selected = -1;
-    S.hint = null;
+    render(false);
+  }
+
+  /* ---------- drag and drop ---------- */
+  function squareAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const b = el && el.closest ? el.closest('.sq') : null;
+    return b && $('board').contains(b) ? +b.dataset.sq : -1;
+  }
+
+  function onPointerDown(e) {
+    if (e.button !== undefined && e.button > 0) return;
+    const sq = squareAt(e.clientX, e.clientY);
+    if (sq < 0) return;
+    e.preventDefault();
+    S.drag = null;
+    if (!canAct()) return;
+    const pos = S.game.pos;
+    const p = pos.board[sq];
+    const d = { id: e.pointerId, downSq: sq, x: e.clientX, y: e.clientY, from: -1, active: false, wasSelected: sq === S.selected, moveOnTap: false, touch: e.pointerType !== 'mouse', el: null, over: -1 };
+    if (movesTo(sq).length) {
+      d.moveOnTap = true; // tapping a target (or the rook, to castle)
+    } else if (p && E.colorOf(p) === pos.turn) {
+      S.selected = sq;
+      d.from = sq;
+      render(false);
+    }
+    S.drag = d;
+    try { $('board').setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+  }
+
+  function onPointerMove(e) {
+    const d = S.drag;
+    if (!d || e.pointerId !== d.id || d.from < 0) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.active) {
+      if (dx * dx + dy * dy < 36) return;
+      const sqEl = squareEl(d.from);
+      d.el = sqEl.querySelector('.piece');
+      if (!d.el) return;
+      d.active = true;
+      const r = sqEl.getBoundingClientRect();
+      d.cx = r.left + r.width / 2; d.cy = r.top + r.height / 2;
+      sqEl.classList.add('drag-from');
+      d.el.classList.add('dragging');
+      d.el.style.transition = 'none';
+    }
+    e.preventDefault();
+    d.el.style.transform = `translate(${e.clientX - d.cx}px, ${e.clientY - d.cy}px) scale(${d.touch ? 1.7 : 1.15})`;
+    const over = squareAt(e.clientX, e.clientY);
+    if (over !== d.over) {
+      if (d.over >= 0) squareEl(d.over).classList.remove('drag-over');
+      if (over >= 0 && over !== d.from) squareEl(over).classList.add('drag-over');
+      d.over = over;
+    }
+  }
+
+  function onPointerUp(e) {
+    const d = S.drag;
+    if (!d || e.pointerId !== d.id) return;
+    S.drag = null;
+    try { $('board').releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    const upSq = squareAt(e.clientX, e.clientY);
+    for (const el of $('board').querySelectorAll('.drag-from,.drag-over')) el.classList.remove('drag-from', 'drag-over');
+    if (d.active) {
+      // Dropped a dragged piece.
+      const cands = upSq >= 0 && upSq !== d.from && canAct() ? movesTo(upSq) : [];
+      if (cands.length) play(cands, true);
+      else render(false); // snap back, keep it selected
+      return;
+    }
+    if (upSq !== d.downSq || !canAct()) { render(false); return; }
+    if (d.moveOnTap) { const cands = movesTo(upSq); if (cands.length) play(cands, false); return; }
+    if (d.from >= 0) { if (d.wasSelected) { S.selected = -1; render(false); } return; }
+    S.selected = -1;
+    render(false);
+  }
+
+  function onPointerCancel(e) {
+    const d = S.drag;
+    if (!d || e.pointerId !== d.id) return;
+    S.drag = null;
     render(false);
   }
 
@@ -540,27 +612,12 @@
     }
     S.lastEntry = S.game.history[S.game.history.length - 1] || null;
     S.selected = -1;
-    S.hint = null;
     S.overShown = false;
     S.claudeNote = '';
     $('sheet-over').hidden = true;
     render(false);
     save();
     afterMove();
-  }
-
-  async function hint() {
-    if (!isHumanTurn() || S.thinking || S.game.status().over) return;
-    $('btn-hint').disabled = true;
-    const u = await botMove(S.game.pos.fen(), 'medium');
-    const m = u && S.game.findMove(u);
-    if (m === undefined || m === null) return;
-    S.hint = { from: mFrom(m), to: mTo(m) };
-    render(false);
-    const hp = S.game.pos;
-    $('status-text').textContent = mFlags(m) & F_ABSOLVE
-      ? `Hint: select the bishop on ${E.sqName(mFrom(m))} and absolve ${mTo(m) === mFrom(m) ? 'it' : 'the ' + E.NAMES[E.typeOf(hp.board[mTo(m)])] + ' on ' + E.sqName(mTo(m))}`
-      : 'Hint: ' + hp.toSAN(m);
   }
 
   function newGame(settings) {
@@ -572,7 +629,6 @@
     S.game = new Game();
     S.lastEntry = null;
     S.selected = -1;
-    S.hint = null;
     S.thinking = false;
     S.overShown = false;
     S.claudeNote = '';
@@ -599,7 +655,15 @@
   }
 
   function wire() {
-    $('board').addEventListener('click', (e) => {
+    const board = $('board');
+    board.addEventListener('pointerdown', onPointerDown);
+    board.addEventListener('pointermove', onPointerMove);
+    board.addEventListener('pointerup', onPointerUp);
+    board.addEventListener('pointercancel', onPointerCancel);
+    board.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Keyboard activation only: pointer taps are handled above.
+    board.addEventListener('click', (e) => {
+      if (e.detail !== 0) return;
       const b = e.target.closest('.sq');
       if (b) onSquare(+b.dataset.sq);
     });
@@ -612,7 +676,6 @@
     $('btn-undo').addEventListener('click', undo);
     $('promo').addEventListener('click', (e) => { if (!e.target.closest('button')) { closePromo(); render(false); } });
     $('btn-flip').addEventListener('click', () => { S.flipped = !S.flipped; buildBoard(); render(false); save(); });
-    $('btn-hint').addEventListener('click', hint);
     $('btn-rules').addEventListener('click', () => { $('sheet-rules').hidden = false; });
     $('btn-rules-close').addEventListener('click', () => { $('sheet-rules').hidden = true; try { localStorage.setItem(STORE_KEY + '-rules', '1'); } catch (e) { /* ignore */ } });
     $('btn-settings').addEventListener('click', openSettings);
