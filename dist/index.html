@@ -1,0 +1,2010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remorse Chess</title>
+<meta name="description" content="Chess where every capture leaves a piece guilt-ridden until a bishop absolves it. Play against a bot on your phone.">
+<meta name="theme-color" content="#15121d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Remorse">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+Symbols+2&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+/* Layout: one candlelit column on phones; board left, ledger right on wide screens.
+   A deliberately single, dark "chapel at night" look. */
+:root {
+  --night: #15121d;
+  --night-2: #1e1a29;
+  --night-3: #2a2438;
+  --ink: #ece4d4;
+  --ink-dim: #a69cb5;
+  --candle: #e9b44c;
+  --candle-soft: rgba(233, 180, 76, 0.18);
+  --wax: #9b2c3d;
+  --wax-glow: rgba(196, 50, 72, 0.55);
+  --sq-light: #d9cdb6;
+  --sq-dark: #7b6b8c;
+  --sq-sel: #e9c46a;
+  --piece-white: #f6efe1;
+  --piece-black: #221b2b;
+  --check: rgba(214, 48, 70, 0.75);
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-piece: "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% -10%, #2b2140 0%, var(--night) 60%) fixed, var(--night);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible + span { outline: 2px solid var(--candle); outline-offset: 2px; }
+
+.app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.35rem, 5vw, 1.9rem);
+  letter-spacing: 0.06em;
+  margin: 0;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.tagline { margin: 2px 0 0; color: var(--ink-dim); font-size: 0.85rem; letter-spacing: 0.02em; }
+.top-actions { display: flex; gap: 8px; }
+.icon-btn {
+  background: var(--night-3);
+  border: 1px solid rgba(236, 228, 212, 0.14);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--candle); }
+
+/* Stage */
+.stage { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 900px) {
+  .stage { grid-template-columns: minmax(0, 600px) minmax(0, 1fr); align-items: start; }
+}
+.board-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.side-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.player-bar {
+  display: flex; align-items: center; gap: 10px; min-height: 30px;
+  font-size: 0.9rem; flex-wrap: wrap;
+}
+.player-bar .who { font-weight: 600; letter-spacing: 0.02em; }
+.player-bar.to-move .who::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--candle); margin-right: 7px; vertical-align: 1px;
+  box-shadow: 0 0 10px var(--candle);
+}
+.tokens { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-dim); font-size: 0.8rem; }
+.tokens .tok { width: 10px; height: 10px; border-radius: 50%; background: var(--wax); box-shadow: 0 0 6px var(--wax-glow); }
+.captured { margin-left: auto; font-family: var(--font-piece); font-size: 1.05rem; color: var(--ink-dim); letter-spacing: -0.05em; }
+
+/* Board */
+.board-wrap { position: relative; width: 100%; max-width: min(600px, 74vh); margin: 0 auto; }
+@media (min-width: 900px) { .board-wrap { max-width: 600px; margin: 0; } }
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 0 6px #2f2740, 0 0 0 7px rgba(233, 180, 76, 0.35), 0 18px 50px rgba(0, 0, 0, 0.55);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sq {
+  position: relative;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  overflow: visible;
+}
+.sq.light { background: var(--sq-light); }
+.sq.dark { background: var(--sq-dark); }
+.sq.last::after {
+  content: ""; position: absolute; inset: 0; background: rgba(233, 180, 76, 0.32); pointer-events: none;
+}
+.sq.sel::after { content: ""; position: absolute; inset: 0; background: rgba(233, 196, 106, 0.6); pointer-events: none; }
+.sq.hint { box-shadow: inset 0 0 0 4px var(--candle); }
+.sq.sel .piece.cleansing .token { outline-color: var(--ink); }
+.sq.check { background-image: radial-gradient(circle, var(--check) 0%, rgba(214, 48, 70, 0.35) 45%, transparent 72%); }
+.coord {
+  position: absolute; font-size: clamp(8px, 1.9vw, 11px); font-weight: 700; pointer-events: none; opacity: 0.85;
+  font-family: var(--font-body);
+}
+.coord.file { right: 3px; bottom: 1px; }
+.coord.rank { left: 3px; top: 1px; }
+.sq.light .coord { color: var(--sq-dark); }
+.sq.dark .coord { color: var(--sq-light); }
+
+/* Move targets */
+.sq .dot {
+  position: absolute; width: 28%; height: 28%; border-radius: 50%;
+  background: rgba(30, 20, 40, 0.32); pointer-events: none; z-index: 3;
+}
+.sq .ring {
+  position: absolute; inset: 4%; border-radius: 50%;
+  border: 4px solid rgba(30, 20, 40, 0.38); pointer-events: none; z-index: 3;
+}
+.sq .dot.absolve {
+  width: 36%; height: 36%;
+  background: radial-gradient(circle, #fff3c9 0%, var(--candle) 55%, rgba(233, 180, 76, 0) 75%);
+  box-shadow: 0 0 14px var(--candle);
+}
+
+/* Pieces */
+.piece {
+  position: relative;
+  z-index: 2;
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  font-family: var(--font-piece);
+  font-size: clamp(28px, 9.4vw, 58px);
+  line-height: 1;
+  pointer-events: none;
+  will-change: transform;
+}
+.piece .g { position: relative; z-index: 2; transform: translateY(-2%); }
+.piece.w .g {
+  color: var(--piece-white);
+  -webkit-text-stroke: 1.2px #2a2030;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.35);
+}
+.piece.b .g {
+  color: var(--piece-black);
+  -webkit-text-stroke: 0.7px #8c7d9c;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
+}
+/* The guilt token sits under the piece like a wax seal. */
+.piece .token {
+  position: absolute; z-index: 1;
+  width: 64%; height: 22%;
+  left: 18%; bottom: 7%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 35%, #d2465c 0%, var(--wax) 55%, #5a1421 100%);
+  box-shadow: 0 0 10px var(--wax-glow), inset 0 -2px 3px rgba(0, 0, 0, 0.45);
+}
+.piece.guilty .g { filter: saturate(0.6) brightness(0.92); }
+.piece.cleansing .token {
+  background: radial-gradient(ellipse at 50% 35%, #d2465c 0%, var(--wax) 60%, #5a1421 100%);
+  outline: 2px dashed var(--candle);
+  outline-offset: 1px;
+}
+.piece.just-guilty .token { animation: drop 420ms cubic-bezier(.2, 1.4, .4, 1); }
+.piece.just-absolved::before {
+  content: ""; position: absolute; inset: 6%; border-radius: 50%; z-index: 0;
+  background: radial-gradient(circle, rgba(255, 236, 170, 0.95) 0%, rgba(233, 180, 76, 0.5) 45%, transparent 70%);
+  animation: halo 1100ms ease-out forwards;
+}
+@keyframes drop { from { transform: scale(0.2) translateY(-60%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes halo { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+
+/* Promotion picker */
+.promo {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(21, 18, 29, 0.82);
+  backdrop-filter: blur(3px);
+  border-radius: 6px;
+}
+.promo p { margin: 0; font-family: var(--font-display); letter-spacing: 0.1em; }
+.promo-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.promo-row button {
+  width: min(64px, 17vw); height: min(64px, 17vw); border-radius: 12px; border: 1px solid rgba(236, 228, 212, 0.25);
+  background: var(--sq-light); font-family: var(--font-piece); font-size: min(44px, 12vw); line-height: 1; cursor: pointer;
+  display: grid; place-items: center; padding: 0;
+}
+.promo-row button span.w { color: var(--piece-white); -webkit-text-stroke: 1.2px #2a2030; }
+.promo-row button span.b { color: var(--piece-black); }
+.promo-row button:hover { box-shadow: 0 0 0 3px var(--candle); }
+
+/* Side column */
+.status {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--night-2);
+  border: 1px solid rgba(236, 228, 212, 0.1);
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 1rem;
+  min-height: 46px;
+}
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-dim); flex: none; }
+.status.thinking .status-dot { background: var(--candle); animation: pulse 1s ease-in-out infinite; }
+.status.alert .status-dot { background: #e0485e; }
+.status.done .status-dot { background: var(--candle); }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+.absolve-bar {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--candle-soft); border: 1px solid rgba(233, 180, 76, 0.4);
+  border-radius: 12px; padding: 10px 12px;
+}
+.absolve-bar .hint { color: var(--ink-dim); font-size: 0.85rem; }
+
+.claude-note {
+  background: var(--night-2); border: 1px solid rgba(233, 180, 76, 0.28); border-radius: 12px; padding: 10px 14px;
+}
+.claude-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.claude-name { font-family: var(--font-display); letter-spacing: 0.1em; font-size: 0.85rem; color: var(--candle); }
+.claude-note p { margin: 4px 0 0; font-style: italic; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 0.85rem; }
+
+.controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.btn {
+  background: var(--night-3);
+  border: 1px solid rgba(236, 228, 212, 0.14);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.btn:hover:not(:disabled) { border-color: rgba(233, 180, 76, 0.6); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn-gold { background: var(--candle); color: #2a1d08; border-color: var(--candle); }
+.btn-gold:hover:not(:disabled) { background: #f2c466; }
+
+.moves-box { background: var(--night-2); border: 1px solid rgba(236, 228, 212, 0.08); border-radius: 12px; padding: 10px 14px; }
+.moves-box h2 { font-family: var(--font-display); font-size: 0.85rem; letter-spacing: 0.14em; margin: 0 0 6px; color: var(--ink-dim); font-weight: 600; }
+.moves {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 2.2em 1fr 1fr; row-gap: 2px;
+  max-height: 210px; overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 900px) { .moves { max-height: 360px; } }
+.moves li { display: contents; }
+.moves .num { color: var(--ink-dim); }
+.moves .mv { padding: 1px 4px; border-radius: 4px; }
+.moves .mv.cur { background: var(--candle-soft); }
+.mv .cap { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--wax); margin-left: 4px; vertical-align: 1px; }
+.mv .abs { color: var(--candle); margin-left: 3px; }
+.legend { margin: 8px 0 0; font-size: 0.78rem; color: var(--ink-dim); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.lg-cap { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--wax); }
+.lg-abs { color: var(--candle); margin-left: 8px; }
+
+/* Sheets */
+.sheet-back {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(8, 6, 12, 0.66);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+@media (min-width: 640px) { .sheet-back { align-items: center; } }
+.sheet {
+  width: 100%; max-width: 520px; max-height: 100%;
+  overflow-y: auto;
+  background: var(--night-2);
+  border: 1px solid rgba(233, 180, 76, 0.25);
+  border-radius: 18px 18px 0 0;
+  padding: 18px 18px 20px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  animation: rise 220ms ease-out;
+}
+@media (min-width: 640px) { .sheet { border-radius: 18px; } }
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } }
+.sheet h2 { font-family: var(--font-display); letter-spacing: 0.06em; margin: 0 0 10px; font-size: 1.3rem; text-wrap: balance; }
+.sheet fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+.sheet legend { font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+.choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice-grid label, .seg label { position: relative; cursor: pointer; }
+.choice-grid input, .seg input { position: absolute; opacity: 0; pointer-events: none; }
+.choice-grid span {
+  display: flex; flex-direction: column; gap: 1px; height: 100%;
+  padding: 10px 12px; border-radius: 12px; background: var(--night-3);
+  border: 1px solid rgba(236, 228, 212, 0.1);
+}
+.choice-grid small { color: var(--ink-dim); font-size: 0.78rem; }
+.choice-grid input:checked + span, .seg input:checked + span { border-color: var(--candle); box-shadow: inset 0 0 0 1px var(--candle); background: #322a20; }
+.choice-grid input:disabled + span { opacity: 0.45; cursor: not-allowed; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.seg span { display: block; text-align: center; padding: 9px; border-radius: 10px; background: var(--night-3); border: 1px solid rgba(236, 228, 212, 0.1); font-weight: 600; }
+.sheet-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap; }
+.sheet-actions .btn { min-width: 110px; }
+.rules p { max-width: 62ch; }
+.rule-list { padding-left: 1.2em; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; max-width: 62ch; }
+.rule-list b { color: var(--candle); font-weight: 600; }
+.fine { color: var(--ink-dim); font-size: 0.85rem; }
+.over p { font-size: 1.05rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Remorse Chess</h1>
+      <p class="tagline">Every capture leaves a mark.</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btn-rules" type="button" aria-label="Rules">Rules</button>
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="New game and settings">New</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="board-col">
+      <div class="player-bar" id="bar-top">
+        <span class="who" id="name-top">Bot</span>
+        <span class="tokens" id="tokens-top"></span>
+        <span class="captured" id="cap-top"></span>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board" role="grid" aria-label="Chess board"></div>
+        <div class="promo" id="promo" hidden>
+          <p>Promote to</p>
+          <div class="promo-row" id="promo-row"></div>
+        </div>
+      </div>
+
+      <div class="player-bar" id="bar-bottom">
+        <span class="who" id="name-bottom">You</span>
+        <span class="tokens" id="tokens-bottom"></span>
+        <span class="captured" id="cap-bottom"></span>
+      </div>
+    </section>
+
+    <section class="side-col">
+      <div class="status" id="status" aria-live="polite">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Your move</span>
+      </div>
+
+      <div class="absolve-bar" id="absolve-bar" hidden>
+        <button class="btn btn-gold" id="btn-absolve" type="button">Absolve in place</button>
+        <span class="hint">Spend this turn forgiving the pieces next to this bishop.</span>
+      </div>
+
+      <div class="claude-note" id="claude-note" hidden>
+        <div class="claude-head">
+          <span class="claude-name">Claude</span>
+          <button class="link-btn" id="btn-claude-skip" type="button" hidden>Let the bot move instead</button>
+        </div>
+        <p id="claude-text"></p>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="btn-undo" type="button">Undo</button>
+        <button class="btn" id="btn-flip" type="button">Flip board</button>
+        <button class="btn" id="btn-hint" type="button">Hint</button>
+      </div>
+
+      <div class="moves-box">
+        <h2>Moves</h2>
+        <ol class="moves" id="moves"></ol>
+        <p class="legend"><span class="lg-cap"></span> capture, piece now guilt-ridden <span class="lg-abs">✦</span> absolution</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="sheet-back" id="sheet-settings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <h2 id="settings-title">New game</h2>
+    <fieldset>
+      <legend>Opponent</legend>
+      <div class="choice-grid" id="opp-choices">
+        <label><input type="radio" name="opp" value="easy" id="opp-easy"><span><b>Novice</b><small>Makes mistakes</small></span></label>
+        <label><input type="radio" name="opp" value="medium" id="opp-medium"><span><b>Deacon</b><small>Solid, quick</small></span></label>
+        <label><input type="radio" name="opp" value="hard" id="opp-hard"><span><b>Bishop</b><small>Strongest, looks ~3 moves deep</small></span></label>
+        <label id="opp-claude-label"><input type="radio" name="opp" value="claude" id="opp-claude"><span><b>Claude</b><small id="claude-avail">Checking…</small></span></label>
+        <label><input type="radio" name="opp" value="human" id="opp-human"><span><b>Pass &amp; play</b><small>Two people, one phone</small></span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>You play</legend>
+      <div class="seg" id="side-choices">
+        <label><input type="radio" name="side" value="w" id="side-w"><span>White</span></label>
+        <label><input type="radio" name="side" value="b" id="side-b"><span>Black</span></label>
+        <label><input type="radio" name="side" value="r" id="side-r"><span>Random</span></label>
+      </div>
+    </fieldset>
+    <div class="sheet-actions">
+      <button class="btn" id="btn-settings-cancel" type="button">Cancel</button>
+      <button class="btn btn-gold" id="btn-start" type="button">Start game</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-back" id="sheet-rules" hidden>
+  <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+    <h2 id="rules-title">How remorse works</h2>
+    <p>Normal chess rules, with one change: pieces feel guilt.</p>
+    <ol class="rule-list">
+      <li><b>Capturing makes a piece guilt-ridden.</b> It gets a red token underneath.</li>
+      <li><b>Guilt-ridden pieces are pacifists.</b> They move as usual but cannot capture. Because they cannot capture, they also do not give check. A king may step right next to a guilty queen.</li>
+      <li><b>Bishops absolve.</b> Move a bishop onto any square touching a guilty piece of your side, including diagonals, and that piece is forgiven. That uses your turn. Every guilty friend touching the bishop is forgiven at once. A bishop already standing next to a guilty piece can use the <i>Absolve in place</i> button instead of moving.</li>
+      <li><b>Bishops forgive themselves.</b> A bishop that captures is guilty through your next turn, so it cannot capture or absolve on that turn. When that turn ends it is clean again. A dashed gold ring marks a bishop that is cleansing itself.</li>
+      <li><b>No bishops, no forgiveness.</b> Once your bishops are gone, guilt is permanent until a pawn promotes to a bishop.</li>
+      <li><b>Checkmate wins.</b> Stalemate, threefold repetition, the 50-move rule and insufficient material are draws.</li>
+    </ol>
+    <p class="fine">The original rules leave a few details open. This game uses these readings: a promotion that captures produces a guilty piece; a guilty king cannot capture either; capturing en passant counts as a capture; a guilt-ridden pawn stays guilt-ridden when it promotes (a guilty new bishop cleanses itself after one turn). If no pawns or bishops remain and every piece but the kings is guilt-ridden, the game is drawn, since nothing can ever capture again.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-gold" id="btn-rules-close" type="button">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-back" id="sheet-over" hidden>
+  <div class="sheet over" role="dialog" aria-modal="true" aria-labelledby="over-title">
+    <h2 id="over-title">Checkmate</h2>
+    <p id="over-text"></p>
+    <div class="sheet-actions">
+      <button class="btn" id="btn-over-review" type="button">Review board</button>
+      <button class="btn btn-gold" id="btn-over-new" type="button">New game</button>
+    </div>
+  </div>
+</div>
+
+<script id="engine-src">/*
+ * Remorse Chess rules engine.
+ *
+ * Standard chess, plus guilt:
+ *  - A piece that captures becomes guilt-ridden. A guilt-ridden piece cannot
+ *    capture (so it also gives no check), but still moves normally.
+ *  - A bishop that ends a non-capturing move next to friendly guilt-ridden
+ *    pieces (any of the 8 neighbouring squares) absolves all of them.
+ *    A bishop already standing next to one may spend its turn absolving
+ *    in place instead of moving.
+ *  - A bishop that captures becomes guilt-ridden too, but cleanses itself:
+ *    it stays guilty through its owner's next turn and is absolved when
+ *    that turn ends. A guilty bishop cannot absolve others.
+ *  - With no bishops left, guilt stays until a pawn promotes to a bishop.
+ *  - Win by checkmate.
+ *
+ * Board: Uint8Array(64), index = rank * 8 + file, rank 0 is White's back rank.
+ * Piece byte: type (1-6) | colour (0 white / 8 black) | GUILT (16).
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.RemorseEngine = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const PAWN = 1, KNIGHT = 2, BISHOP = 3, ROOK = 4, QUEEN = 5, KING = 6;
+  const BLACK_BIT = 8, GUILT = 16, TYPE_MASK = 7;
+  const WHITE = 0, BLACK = 1;
+
+  // Move flags
+  const F_EP = 1, F_CASTLE = 2, F_DOUBLE = 4, F_ABSOLVE = 8;
+
+  const encode = (from, to, promo, flags) => from | (to << 6) | ((promo || 0) << 12) | ((flags || 0) << 15);
+  const mFrom = (m) => m & 63;
+  const mTo = (m) => (m >> 6) & 63;
+  const mPromo = (m) => (m >> 12) & 7;
+  const mFlags = (m) => (m >> 15) & 15;
+
+  const fileOf = (s) => s & 7;
+  const rankOf = (s) => s >> 3;
+  const colorOf = (p) => (p & BLACK_BIT ? BLACK : WHITE);
+  const typeOf = (p) => p & TYPE_MASK;
+  const isGuilty = (p) => (p & GUILT) !== 0;
+
+  // Precomputed tables
+  const KNIGHT_T = [], KING_T = [], RAYS = [];
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  for (let s = 0; s < 64; s++) {
+    const f = fileOf(s), r = rankOf(s);
+    const kn = [], kg = [];
+    for (const [df, dr] of [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]]) {
+      const nf = f + df, nr = r + dr;
+      if (nf >= 0 && nf < 8 && nr >= 0 && nr < 8) kn.push(nr * 8 + nf);
+    }
+    for (const [df, dr] of DIRS) {
+      const nf = f + df, nr = r + dr;
+      if (nf >= 0 && nf < 8 && nr >= 0 && nr < 8) kg.push(nr * 8 + nf);
+    }
+    KNIGHT_T.push(kn);
+    KING_T.push(kg);
+    const rays = [];
+    for (const [df, dr] of DIRS) {
+      const ray = [];
+      let nf = f + df, nr = r + dr;
+      while (nf >= 0 && nf < 8 && nr >= 0 && nr < 8) { ray.push(nr * 8 + nf); nf += df; nr += dr; }
+      rays.push(ray);
+    }
+    RAYS.push(rays); // 0-3 orthogonal, 4-7 diagonal
+  }
+
+  const PIECE_CHARS = { 1: 'p', 2: 'n', 3: 'b', 4: 'r', 5: 'q', 6: 'k' };
+  const CHAR_TYPES = { p: PAWN, n: KNIGHT, b: BISHOP, r: ROOK, q: QUEEN, k: KING };
+  const NAMES = { 1: 'pawn', 2: 'knight', 3: 'bishop', 4: 'rook', 5: 'queen', 6: 'king' };
+
+  const sqName = (s) => 'abcdefgh'[fileOf(s)] + (rankOf(s) + 1);
+  const sqFromName = (n) => (n.charCodeAt(1) - 49) * 8 + (n.charCodeAt(0) - 97);
+
+  const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+  class Position {
+    constructor(fen) {
+      this.board = new Uint8Array(64);
+      this.turn = WHITE;
+      this.castling = 0; // 1 WK, 2 WQ, 4 BK, 8 BQ
+      this.ep = -1;
+      this.halfmove = 0;
+      this.fullmove = 1;
+      this.stack = [];
+      this.load(fen || START_FEN);
+    }
+
+    /* FEN with one extension: a '*' after a piece letter marks it guilt-ridden. */
+    load(fen) {
+      const parts = fen.trim().split(/\s+/);
+      this.board.fill(0);
+      let r = 7, f = 0;
+      const rows = parts[0];
+      for (let i = 0; i < rows.length; i++) {
+        const c = rows[i];
+        if (c === '/') { r--; f = 0; continue; }
+        if (c >= '1' && c <= '8') { f += +c; continue; }
+        if (c === '*') { this.board[r * 8 + f - 1] |= GUILT; continue; }
+        const t = CHAR_TYPES[c.toLowerCase()];
+        if (!t) throw new Error('Bad FEN piece ' + c);
+        this.board[r * 8 + f] = t | (c === c.toLowerCase() ? BLACK_BIT : 0);
+        f++;
+      }
+      this.turn = parts[1] === 'b' ? BLACK : WHITE;
+      this.castling = 0;
+      const cs = parts[2] || '-';
+      if (cs.includes('K')) this.castling |= 1;
+      if (cs.includes('Q')) this.castling |= 2;
+      if (cs.includes('k')) this.castling |= 4;
+      if (cs.includes('q')) this.castling |= 8;
+      this.ep = parts[3] && parts[3] !== '-' ? sqFromName(parts[3]) : -1;
+      this.halfmove = parts[4] ? +parts[4] : 0;
+      this.fullmove = parts[5] ? +parts[5] : 1;
+      this.stack = [];
+      return this;
+    }
+
+    fen() {
+      let out = '';
+      for (let r = 7; r >= 0; r--) {
+        let empty = 0;
+        for (let f = 0; f < 8; f++) {
+          const p = this.board[r * 8 + f];
+          if (!p) { empty++; continue; }
+          if (empty) { out += empty; empty = 0; }
+          const ch = PIECE_CHARS[typeOf(p)];
+          out += colorOf(p) === WHITE ? ch.toUpperCase() : ch;
+          if (isGuilty(p)) out += '*';
+        }
+        if (empty) out += empty;
+        if (r) out += '/';
+      }
+      let cs = '';
+      if (this.castling & 1) cs += 'K';
+      if (this.castling & 2) cs += 'Q';
+      if (this.castling & 4) cs += 'k';
+      if (this.castling & 8) cs += 'q';
+      return `${out} ${this.turn === WHITE ? 'w' : 'b'} ${cs || '-'} ${this.ep >= 0 ? sqName(this.ep) : '-'} ${this.halfmove} ${this.fullmove}`;
+    }
+
+    /* Repetition key: placement + guilt + side + castling + ep. */
+    key() {
+      const parts = this.fen().split(' ');
+      if (this.ep >= 0 && !this.legalMoves().some((m) => mFlags(m) & F_EP)) parts[3] = '-';
+      return parts.slice(0, 4).join(' ');
+    }
+
+    clone() {
+      const p = new Position(START_FEN);
+      p.board.set(this.board);
+      p.turn = this.turn; p.castling = this.castling; p.ep = this.ep;
+      p.halfmove = this.halfmove; p.fullmove = this.fullmove;
+      return p;
+    }
+
+    kingSquare(side) {
+      const want = KING | (side === BLACK ? BLACK_BIT : 0);
+      const b = this.board;
+      for (let s = 0; s < 64; s++) if ((b[s] & 15) === want) return s;
+      return -1;
+    }
+
+    /* Is `sq` attacked by an innocent (non-guilty) piece of colour `by`? */
+    attacked(sq, by) {
+      const b = this.board;
+      const cb = by === BLACK ? BLACK_BIT : 0;
+      const f = fileOf(sq);
+      // Pawns
+      if (by === WHITE) {
+        if (f > 0 && sq - 9 >= 0 && b[sq - 9] === (PAWN)) return true;
+        if (f < 7 && sq - 7 >= 0 && b[sq - 7] === (PAWN)) return true;
+      } else {
+        if (f > 0 && sq + 7 < 64 && b[sq + 7] === (PAWN | BLACK_BIT)) return true;
+        if (f < 7 && sq + 9 < 64 && b[sq + 9] === (PAWN | BLACK_BIT)) return true;
+      }
+      // Exact equality above excludes guilty pawns (GUILT bit set).
+      const kn = KNIGHT_T[sq];
+      for (let i = 0; i < kn.length; i++) if (b[kn[i]] === (KNIGHT | cb)) return true;
+      const kg = KING_T[sq];
+      for (let i = 0; i < kg.length; i++) if (b[kg[i]] === (KING | cb)) return true;
+      const rays = RAYS[sq];
+      for (let d = 0; d < 8; d++) {
+        const ray = rays[d];
+        for (let i = 0; i < ray.length; i++) {
+          const p = b[ray[i]];
+          if (!p) continue;
+          if (p === (QUEEN | cb) || p === ((d < 4 ? ROOK : BISHOP) | cb)) return true;
+          break;
+        }
+      }
+      return false;
+    }
+
+    inCheck(side) {
+      const k = this.kingSquare(side === undefined ? this.turn : side);
+      if (k < 0) return false;
+      return this.attacked(k, (side === undefined ? this.turn : side) ^ 1);
+    }
+
+    /* Can the bishop on `sq` (colour side) absolve anyone adjacent? */
+    hasGuiltyNeighbour(sq, side) {
+      const b = this.board, kg = KING_T[sq];
+      for (let i = 0; i < kg.length; i++) {
+        const p = b[kg[i]];
+        if (p && isGuilty(p) && colorOf(p) === side) return true;
+      }
+      return false;
+    }
+
+    pseudoMoves(out) {
+      const b = this.board, side = this.turn;
+      const moves = out || [];
+      for (let s = 0; s < 64; s++) {
+        const p = b[s];
+        if (!p || colorOf(p) !== side) continue;
+        const t = typeOf(p), guilty = isGuilty(p);
+        if (t === PAWN) {
+          const dir = side === WHITE ? 8 : -8;
+          const startRank = side === WHITE ? 1 : 6;
+          const lastRank = side === WHITE ? 7 : 0;
+          const one = s + dir;
+          if (one >= 0 && one < 64 && !b[one]) {
+            if (rankOf(one) === lastRank) {
+              for (const pr of [QUEEN, ROOK, BISHOP, KNIGHT]) moves.push(encode(s, one, pr, 0));
+            } else {
+              moves.push(encode(s, one, 0, 0));
+              if (rankOf(s) === startRank && !b[one + dir]) moves.push(encode(s, one + dir, 0, F_DOUBLE));
+            }
+          }
+          if (!guilty) {
+            const f = fileOf(s);
+            for (const df of [-1, 1]) {
+              if (f + df < 0 || f + df > 7) continue;
+              const to = one + df;
+              if (to < 0 || to > 63) continue;
+              const q = b[to];
+              if (q && colorOf(q) !== side) {
+                if (rankOf(to) === lastRank) {
+                  for (const pr of [QUEEN, ROOK, BISHOP, KNIGHT]) moves.push(encode(s, to, pr, 0));
+                } else moves.push(encode(s, to, 0, 0));
+              } else if (to === this.ep && !q) {
+                moves.push(encode(s, to, 0, F_EP));
+              }
+            }
+          }
+        } else if (t === KNIGHT || t === KING) {
+          const tg = t === KNIGHT ? KNIGHT_T[s] : KING_T[s];
+          for (let i = 0; i < tg.length; i++) {
+            const to = tg[i], q = b[to];
+            if (!q) moves.push(encode(s, to, 0, 0));
+            else if (!guilty && colorOf(q) !== side) moves.push(encode(s, to, 0, 0));
+          }
+          if (t === KING) this._castles(s, side, moves);
+        } else {
+          const d0 = t === BISHOP ? 4 : 0, d1 = t === ROOK ? 4 : 8;
+          const rays = RAYS[s];
+          for (let d = d0; d < d1; d++) {
+            const ray = rays[d];
+            for (let i = 0; i < ray.length; i++) {
+              const to = ray[i], q = b[to];
+              if (!q) { moves.push(encode(s, to, 0, 0)); continue; }
+              if (!guilty && colorOf(q) !== side) moves.push(encode(s, to, 0, 0));
+              break;
+            }
+          }
+          if (t === BISHOP && !guilty && this.hasGuiltyNeighbour(s, side)) {
+            moves.push(encode(s, s, 0, F_ABSOLVE));
+          }
+        }
+      }
+      return moves;
+    }
+
+    _castles(s, side, moves) {
+      const b = this.board, enemy = side ^ 1;
+      if (side === WHITE && s === 4) {
+        if ((this.castling & 1) && !b[5] && !b[6] && typeOf(b[7]) === ROOK && colorOf(b[7]) === WHITE &&
+            !this.attacked(4, enemy) && !this.attacked(5, enemy) && !this.attacked(6, enemy))
+          moves.push(encode(4, 6, 0, F_CASTLE));
+        if ((this.castling & 2) && !b[3] && !b[2] && !b[1] && typeOf(b[0]) === ROOK && colorOf(b[0]) === WHITE &&
+            !this.attacked(4, enemy) && !this.attacked(3, enemy) && !this.attacked(2, enemy))
+          moves.push(encode(4, 2, 0, F_CASTLE));
+      } else if (side === BLACK && s === 60) {
+        if ((this.castling & 4) && !b[61] && !b[62] && typeOf(b[63]) === ROOK && colorOf(b[63]) === BLACK &&
+            !this.attacked(60, enemy) && !this.attacked(61, enemy) && !this.attacked(62, enemy))
+          moves.push(encode(60, 62, 0, F_CASTLE));
+        if ((this.castling & 8) && !b[59] && !b[58] && !b[57] && typeOf(b[56]) === ROOK && colorOf(b[56]) === BLACK &&
+            !this.attacked(60, enemy) && !this.attacked(59, enemy) && !this.attacked(58, enemy))
+          moves.push(encode(60, 58, 0, F_CASTLE));
+      }
+    }
+
+    _absolveAround(sq, side, changes) {
+      const b = this.board, kg = KING_T[sq];
+      for (let i = 0; i < kg.length; i++) {
+        const n = kg[i], p = b[n];
+        if (p && isGuilty(p) && colorOf(p) === side) {
+          b[n] = p & ~GUILT;
+          if (changes) changes.push(n);
+        }
+      }
+    }
+
+    /*
+     * Apply a move. Returns an info object describing what happened
+     * (captured piece, squares absolved, squares self-cleansed).
+     */
+    make(m, wantInfo) {
+      const b = this.board;
+      this.stack.push({ board: b.slice(), turn: this.turn, castling: this.castling, ep: this.ep, halfmove: this.halfmove, fullmove: this.fullmove });
+      const side = this.turn;
+      const from = mFrom(m), to = mTo(m), promo = mPromo(m), flags = mFlags(m);
+      const info = wantInfo ? { captured: 0, capturedSq: -1, absolved: [], cleansed: [], becameGuilty: -1 } : null;
+
+      // Bishops that were guilty when this turn began cleanse themselves at its end.
+      let cleanse = null;
+      for (let s = 0; s < 64; s++) {
+        const p = b[s];
+        if (p && (p & (TYPE_MASK | BLACK_BIT | GUILT)) === (BISHOP | (side === BLACK ? BLACK_BIT : 0) | GUILT)) {
+          (cleanse || (cleanse = [])).push(s);
+        }
+      }
+
+      let captured = 0, isPawnMove = false;
+      if (flags & F_ABSOLVE) {
+        this._absolveAround(from, side, info && info.absolved);
+      } else {
+        const p = b[from];
+        isPawnMove = typeOf(p) === PAWN;
+        captured = b[to];
+        let capSq = to;
+        if (flags & F_EP) {
+          capSq = side === WHITE ? to - 8 : to + 8;
+          captured = b[capSq];
+          b[capSq] = 0;
+        }
+        b[to] = promo ? (p & ~TYPE_MASK) | promo : p;
+        b[from] = 0;
+        if (flags & F_CASTLE) {
+          if (to === 6) { b[5] = b[7]; b[7] = 0; }
+          else if (to === 2) { b[3] = b[0]; b[0] = 0; }
+          else if (to === 62) { b[61] = b[63]; b[63] = 0; }
+          else if (to === 58) { b[59] = b[56]; b[56] = 0; }
+        }
+        if (captured) {
+          b[to] |= GUILT;
+          if (info) { info.captured = captured; info.capturedSq = capSq; info.becameGuilty = to; }
+        } else if (typeOf(b[to]) === BISHOP && !isGuilty(b[to])) {
+          this._absolveAround(to, side, info && info.absolved);
+        }
+        // Castling rights
+        if (typeOf(p) === KING) this.castling &= side === WHITE ? ~3 : ~12;
+        if (from === 0 || to === 0) this.castling &= ~2;
+        if (from === 7 || to === 7) this.castling &= ~1;
+        if (from === 56 || to === 56) this.castling &= ~8;
+        if (from === 63 || to === 63) this.castling &= ~4;
+      }
+
+      if (cleanse) {
+        for (const s0 of cleanse) {
+          const s = (s0 === from && !(flags & F_ABSOLVE)) ? to : s0;
+          if (isGuilty(b[s]) && typeOf(b[s]) === BISHOP && colorOf(b[s]) === side) {
+            b[s] &= ~GUILT;
+            if (info) info.cleansed.push(s);
+          }
+        }
+      }
+
+      this.ep = flags & F_DOUBLE ? (from + to) >> 1 : -1;
+      this.halfmove = captured || isPawnMove ? 0 : this.halfmove + 1;
+      if (side === BLACK) this.fullmove++;
+      this.turn = side ^ 1;
+      return info;
+    }
+
+    unmake() {
+      const u = this.stack.pop();
+      this.board.set(u.board);
+      this.turn = u.turn; this.castling = u.castling; this.ep = u.ep;
+      this.halfmove = u.halfmove; this.fullmove = u.fullmove;
+    }
+
+    legalMoves() {
+      const side = this.turn;
+      const pseudo = this.pseudoMoves([]);
+      const legal = [];
+      for (const m of pseudo) {
+        this.make(m);
+        if (!this.inCheck(side)) legal.push(m);
+        this.unmake();
+      }
+      return legal;
+    }
+
+    isCapture(m) {
+      if (mFlags(m) & F_EP) return true;
+      if (mFlags(m) & F_ABSOLVE) return false;
+      return this.board[mTo(m)] !== 0;
+    }
+
+    /* Squares that would be absolved by this move (before making it). */
+    absolvesBy(m) {
+      const side = this.turn;
+      const info = this.make(m, true);
+      this.unmake();
+      void side;
+      return info.absolved;
+    }
+
+    insufficientMaterial() {
+      let minors = 0, knights = 0;
+      const bishopColors = new Set();
+      for (let s = 0; s < 64; s++) {
+        const t = typeOf(this.board[s]);
+        if (t === PAWN || t === ROOK || t === QUEEN) return false;
+        if (t === KNIGHT) { minors++; knights++; }
+        if (t === BISHOP) { minors++; bishopColors.add((fileOf(s) + rankOf(s)) & 1); }
+      }
+      if (minors <= 1) return true;
+      // Only bishops, all on squares of one colour: mate is impossible.
+      return knights === 0 && bishopColors.size === 1;
+    }
+
+    /*
+     * Dead by guilt: no pawns, no bishops, and every piece except the kings is
+     * guilt-ridden. Nothing can ever be absolved, so nobody can give check again.
+     */
+    deadByGuilt() {
+      for (let s = 0; s < 64; s++) {
+        const p = this.board[s];
+        if (!p) continue;
+        const t = typeOf(p);
+        if (t === PAWN || t === BISHOP) return false;
+        if (t !== KING && !isGuilty(p)) return false;
+      }
+      return true;
+    }
+
+    toSAN(m, legal) {
+      legal = legal || this.legalMoves();
+      const from = mFrom(m), to = mTo(m), flags = mFlags(m), promo = mPromo(m);
+      const p = this.board[from], t = typeOf(p);
+      let san;
+      if (flags & F_ABSOLVE) {
+        san = 'B' + sqName(from) + '~';
+      } else if (flags & F_CASTLE) {
+        san = fileOf(to) === 6 ? 'O-O' : 'O-O-O';
+      } else {
+        const cap = this.isCapture(m);
+        if (t === PAWN) {
+          san = (cap ? 'abcdefgh'[fileOf(from)] + 'x' : '') + sqName(to);
+          if (promo) san += '=' + PIECE_CHARS[promo].toUpperCase();
+        } else {
+          const letter = PIECE_CHARS[t].toUpperCase();
+          let dis = '';
+          const others = legal.filter((o) => o !== m && mTo(o) === to && !(mFlags(o) & F_ABSOLVE) &&
+            mFrom(o) !== from && typeOf(this.board[mFrom(o)]) === t);
+          if (others.length) {
+            const sameFile = others.some((o) => fileOf(mFrom(o)) === fileOf(from));
+            const sameRank = others.some((o) => rankOf(mFrom(o)) === rankOf(from));
+            if (!sameFile) dis = 'abcdefgh'[fileOf(from)];
+            else if (!sameRank) dis = String(rankOf(from) + 1);
+            else dis = sqName(from);
+          }
+          san = letter + dis + (cap ? 'x' : '') + sqName(to);
+        }
+      }
+      this.make(m);
+      const check = this.inCheck();
+      const mate = check && this.legalMoves().length === 0;
+      this.unmake();
+      return san + (mate ? '#' : check ? '+' : '');
+    }
+  }
+
+  const uci = (m) => (mFlags(m) & F_ABSOLVE)
+    ? sqName(mFrom(m)) + sqName(mFrom(m))
+    : sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? PIECE_CHARS[mPromo(m)] : '');
+
+  /*
+   * Game: a Position plus history, SAN log and result detection.
+   */
+  class Game {
+    constructor(fen) {
+      this.pos = new Position(fen);
+      this.startFen = fen || START_FEN;
+      this.history = []; // {move, san, info, key}
+      this.keys = [this.pos.key()];
+    }
+
+    legalMoves() { return this.pos.legalMoves(); }
+
+    findMove(uciStr) {
+      const want = uciStr.trim().toLowerCase();
+      return this.legalMoves().find((m) => uci(m) === want);
+    }
+
+    play(m) {
+      const legal = this.legalMoves();
+      if (!legal.includes(m)) throw new Error('Illegal move ' + uci(m));
+      const san = this.pos.toSAN(m, legal);
+      const mover = this.pos.board[mFrom(m)];
+      const info = this.pos.make(m, true);
+      info.mover = mover;
+      this.pos.stack.length = 0; // history lives in Game, not Position
+      const key = this.pos.key();
+      this.keys.push(key);
+      const entry = { move: m, uci: uci(m), san, info, fen: this.pos.fen() };
+      this.history.push(entry);
+      return entry;
+    }
+
+    undo() {
+      if (!this.history.length) return false;
+      this.history.pop();
+      this.keys.pop();
+      const fen = this.history.length ? this.history[this.history.length - 1].fen : this.startFen;
+      this.pos.load(fen);
+      return true;
+    }
+
+    /* {over, result: '1-0'|'0-1'|'1/2-1/2', reason} */
+    status() {
+      const legal = this.legalMoves();
+      if (legal.length === 0) {
+        if (this.pos.inCheck()) {
+          return { over: true, result: this.pos.turn === WHITE ? '0-1' : '1-0', reason: 'checkmate', winner: this.pos.turn ^ 1 };
+        }
+        return { over: true, result: '1/2-1/2', reason: 'stalemate' };
+      }
+      if (this.pos.halfmove >= 100) return { over: true, result: '1/2-1/2', reason: 'fifty-move rule' };
+      const k = this.keys[this.keys.length - 1];
+      let reps = 0;
+      for (const x of this.keys) if (x === k) reps++;
+      if (reps >= 3) return { over: true, result: '1/2-1/2', reason: 'threefold repetition' };
+      if (this.pos.insufficientMaterial()) return { over: true, result: '1/2-1/2', reason: 'insufficient material' };
+      if (this.pos.deadByGuilt()) return { over: true, result: '1/2-1/2', reason: 'remorse (no piece can ever capture again)' };
+      return { over: false, inCheck: this.pos.inCheck() };
+    }
+  }
+
+  return {
+    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, BLACK_BIT, GUILT, TYPE_MASK, WHITE, BLACK,
+    F_EP, F_CASTLE, F_DOUBLE, F_ABSOLVE, START_FEN, NAMES, PIECE_CHARS, KING_T,
+    encode, mFrom, mTo, mPromo, mFlags, fileOf, rankOf, colorOf, typeOf, isGuilty,
+    sqName, sqFromName, uci, Position, Game,
+  };
+});
+</script>
+<script id="ai-src">/*
+ * Remorse Chess bot: alpha-beta search with iterative deepening, quiescence on
+ * captures, and an evaluation that understands guilt.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./engine.js'));
+  else root.RemorseAI = factory(root.RemorseEngine);
+})(typeof self !== 'undefined' ? self : this, function (E) {
+  'use strict';
+
+  const { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, GUILT, BLACK_BIT, WHITE, BLACK, F_ABSOLVE } = E;
+  const VALUE = [0, 100, 315, 345, 500, 920, 0];
+  const MATE = 100000;
+
+  // Piece-square tables from White's point of view, index = rank * 8 + file.
+  const PST = {
+    [PAWN]: [
+      0, 0, 0, 0, 0, 0, 0, 0,
+      5, 10, 10, -20, -20, 10, 10, 5,
+      5, -5, -10, 0, 0, -10, -5, 5,
+      0, 0, 0, 20, 20, 0, 0, 0,
+      5, 5, 10, 25, 25, 10, 5, 5,
+      10, 10, 20, 30, 30, 20, 10, 10,
+      50, 50, 50, 50, 50, 50, 50, 50,
+      0, 0, 0, 0, 0, 0, 0, 0],
+    [KNIGHT]: [
+      -50, -40, -30, -30, -30, -30, -40, -50,
+      -40, -20, 0, 5, 5, 0, -20, -40,
+      -30, 5, 10, 15, 15, 10, 5, -30,
+      -30, 0, 15, 20, 20, 15, 0, -30,
+      -30, 5, 15, 20, 20, 15, 5, -30,
+      -30, 0, 10, 15, 15, 10, 0, -30,
+      -40, -20, 0, 0, 0, 0, -20, -40,
+      -50, -40, -30, -30, -30, -30, -40, -50],
+    [BISHOP]: [
+      -20, -10, -10, -10, -10, -10, -10, -20,
+      -10, 5, 0, 0, 0, 0, 5, -10,
+      -10, 10, 10, 10, 10, 10, 10, -10,
+      -10, 0, 10, 10, 10, 10, 0, -10,
+      -10, 5, 5, 10, 10, 5, 5, -10,
+      -10, 0, 5, 10, 10, 5, 0, -10,
+      -10, 0, 0, 0, 0, 0, 0, -10,
+      -20, -10, -10, -10, -10, -10, -10, -20],
+    [ROOK]: [
+      0, 0, 0, 5, 5, 0, 0, 0,
+      -5, 0, 0, 0, 0, 0, 0, -5,
+      -5, 0, 0, 0, 0, 0, 0, -5,
+      -5, 0, 0, 0, 0, 0, 0, -5,
+      -5, 0, 0, 0, 0, 0, 0, -5,
+      -5, 0, 0, 0, 0, 0, 0, -5,
+      5, 10, 10, 10, 10, 10, 10, 5,
+      0, 0, 0, 0, 0, 0, 0, 0],
+    [QUEEN]: [
+      -20, -10, -10, -5, -5, -10, -10, -20,
+      -10, 0, 5, 0, 0, 0, 0, -10,
+      -10, 5, 5, 5, 5, 5, 0, -10,
+      0, 0, 5, 5, 5, 5, 0, -5,
+      -5, 0, 5, 5, 5, 5, 0, -5,
+      -10, 0, 5, 5, 5, 5, 0, -10,
+      -10, 0, 0, 0, 0, 0, 0, -10,
+      -20, -10, -10, -5, -5, -10, -10, -20],
+    [KING]: [
+      20, 30, 10, 0, 0, 10, 30, 20,
+      20, 20, 0, 0, 0, 0, 20, 20,
+      -10, -20, -20, -20, -20, -20, -20, -10,
+      -20, -30, -30, -40, -40, -30, -30, -20,
+      -30, -40, -40, -50, -50, -40, -40, -30,
+      -30, -40, -40, -50, -50, -40, -40, -30,
+      -30, -40, -40, -50, -50, -40, -40, -30,
+      -30, -40, -40, -50, -50, -40, -40, -30],
+  };
+  const KING_END = [
+    -50, -30, -30, -30, -30, -30, -30, -50,
+    -30, -30, 0, 0, 0, 0, -30, -30,
+    -30, -10, 20, 30, 30, 20, -10, -30,
+    -30, -10, 30, 40, 40, 30, -10, -30,
+    -30, -10, 30, 40, 40, 30, -10, -30,
+    -30, -10, 20, 30, 30, 20, -10, -30,
+    -30, -20, -10, 0, 0, -10, -20, -30,
+    -50, -40, -30, -20, -20, -30, -40, -50];
+
+  /* Static evaluation, positive = good for the side to move. */
+  function evaluate(pos) {
+    const b = pos.board;
+    let score = [0, 0];
+    const bishops = [0, 0], innocentBishops = [0, 0], nonPawn = [0, 0];
+    const guiltySq = [[], []];
+    const kings = [-1, -1];
+    for (let s = 0; s < 64; s++) {
+      const p = b[s];
+      if (!p) continue;
+      const t = p & 7, c = p & BLACK_BIT ? 1 : 0;
+      if (t === BISHOP) { bishops[c]++; if (!(p & GUILT)) innocentBishops[c]++; }
+      if (t !== PAWN && t !== KING) nonPawn[c] += VALUE[t];
+      if (t === KING) kings[c] = s;
+      if (p & GUILT) guiltySq[c].push(s);
+    }
+    const endgame = nonPawn[0] + nonPawn[1] <= 2600;
+    for (let s = 0; s < 64; s++) {
+      const p = b[s];
+      if (!p) continue;
+      const t = p & 7, c = p & BLACK_BIT ? 1 : 0;
+      const idx = c === WHITE ? s : (7 - (s >> 3)) * 8 + (s & 7);
+      let v = VALUE[t] + (t === KING && endgame ? KING_END[idx] : PST[t][idx]);
+      if (p & GUILT) {
+        if (t === KING) v -= 40;
+        else if (t === BISHOP) v -= 15; // cleanses itself next turn
+        else {
+          // A guilty piece is a pacifist until a bishop gets to it.
+          const redeemable = innocentBishops[c] > 0 || bishops[c] > 0;
+          const factor = redeemable ? (t === PAWN ? 0.15 : 0.18) : (t === PAWN ? 0.3 : 0.4);
+          v -= VALUE[t] * factor;
+        }
+      }
+      score[c] += v;
+    }
+    // Bishops are the only cure for guilt: reward keeping one, and reward
+    // bishops that are close to guilty friends.
+    for (let c = 0; c < 2; c++) {
+      if (bishops[c] > 0) score[c] += 30;
+      if (bishops[c] > 1) score[c] += 20;
+      if (guiltySq[c].length && innocentBishops[c]) {
+        for (let s = 0; s < 64; s++) {
+          const p = b[s];
+          if (!p || (p & 7) !== BISHOP || (p & GUILT) || (p & BLACK_BIT ? 1 : 0) !== c) continue;
+          let best = 8;
+          for (const g of guiltySq[c]) {
+            const d = Math.max(Math.abs((g & 7) - (s & 7)), Math.abs((g >> 3) - (s >> 3)));
+            if (d < best) best = d;
+          }
+          score[c] += (8 - best) * 3;
+        }
+      }
+    }
+    const us = pos.turn;
+    return score[us] - score[us ^ 1];
+  }
+
+  function moveOrderScore(pos, m, killers, ply) {
+    const b = pos.board;
+    const from = E.mFrom(m), to = E.mTo(m), fl = E.mFlags(m);
+    if (fl & F_ABSOLVE) return 600;
+    let s = 0;
+    const victim = b[to];
+    if (victim) s += 10000 + VALUE[victim & 7] * 10 - VALUE[b[from] & 7] / 10;
+    else if (fl & E.F_EP) s += 10000 + 1000;
+    if (E.mPromo(m)) s += 9000 + VALUE[E.mPromo(m)];
+    if (killers && (killers[ply * 2] === m || killers[ply * 2 + 1] === m)) s += 5000;
+    return s;
+  }
+
+  class Searcher {
+    constructor(opts) {
+      this.deadline = Infinity;
+      this.nodes = 0;
+      this.killers = new Int32Array(256);
+      this.stopped = false;
+      this.rand = (opts && opts.rand) || Math.random;
+    }
+
+    timeUp() {
+      if ((++this.nodes & 1023) === 0 && Date.now() > this.deadline) this.stopped = true;
+      return this.stopped;
+    }
+
+    ordered(pos, moves, ply, pvMove) {
+      const scored = moves.map((m) => [m === pvMove ? 1e9 : moveOrderScore(pos, m, this.killers, ply), m]);
+      scored.sort((a, b) => b[0] - a[0]);
+      return scored.map((x) => x[1]);
+    }
+
+    quiesce(pos, alpha, beta, ply) {
+      if (this.timeUp()) return 0;
+      const stand = evaluate(pos);
+      if (stand >= beta) return beta;
+      if (stand > alpha) alpha = stand;
+      if (ply > 30) return alpha;
+      const side = pos.turn;
+      const caps = pos.pseudoMoves([]).filter((m) => pos.isCapture(m) || E.mPromo(m) === QUEEN);
+      for (const m of this.ordered(pos, caps, ply, -1)) {
+        pos.make(m);
+        if (pos.inCheck(side)) { pos.unmake(); continue; }
+        const score = -this.quiesce(pos, -beta, -alpha, ply + 1);
+        pos.unmake();
+        if (this.stopped) return 0;
+        if (score >= beta) return beta;
+        if (score > alpha) alpha = score;
+      }
+      return alpha;
+    }
+
+    negamax(pos, depth, alpha, beta, ply) {
+      if (this.timeUp()) return 0;
+      const side = pos.turn;
+      const inCheck = pos.inCheck(side);
+      if (depth <= 0 && !inCheck) return this.quiesce(pos, alpha, beta, ply);
+      if (pos.halfmove >= 100) return 0;
+      const moves = this.ordered(pos, pos.pseudoMoves([]), ply, -1);
+      let legal = 0, best = -Infinity;
+      for (const m of moves) {
+        pos.make(m);
+        if (pos.inCheck(side)) { pos.unmake(); continue; }
+        legal++;
+        const score = -this.negamax(pos, depth - 1, -beta, -alpha, ply + 1);
+        pos.unmake();
+        if (this.stopped) return 0;
+        if (score > best) best = score;
+        if (score > alpha) alpha = score;
+        if (alpha >= beta) {
+          if (!pos.isCapture(m)) {
+            this.killers[ply * 2 + 1] = this.killers[ply * 2];
+            this.killers[ply * 2] = m;
+          }
+          break;
+        }
+      }
+      if (!legal) return inCheck ? -MATE + ply : 0;
+      return best;
+    }
+
+  }
+
+  /*
+   * Pick a move.
+   * level: 'easy' | 'medium' | 'hard'
+   * Returns {move, score, depth, nodes}.
+   */
+  function chooseMove(pos, level, opts) {
+    opts = opts || {};
+    const rand = opts.rand || Math.random;
+    const cfg = {
+      easy: { maxDepth: 2, ms: 250, noise: 140, blunder: 0.2 },
+      medium: { maxDepth: 3, ms: 700, noise: 25, blunder: 0 },
+      hard: { maxDepth: 64, ms: opts.ms || 1600, noise: 0, blunder: 0 },
+    }[level || 'medium'];
+    const work = pos.clone();
+    const legal = work.legalMoves();
+    if (!legal.length) return null;
+    if (legal.length === 1) return { move: legal[0], score: 0, depth: 0, nodes: 0 };
+    if (cfg.blunder && rand() < cfg.blunder) {
+      return { move: legal[Math.floor(rand() * legal.length)], score: 0, depth: 0, nodes: 0 };
+    }
+
+    const s = new Searcher({ rand });
+    s.deadline = Date.now() + cfg.ms;
+    let order = legal.slice();
+    let bestResults = null, depthDone = 0;
+    for (let depth = 1; depth <= cfg.maxDepth; depth++) {
+      // Full-window root so every move gets an exact score (needed for noise).
+      const results = [];
+      let aborted = false, alpha = -Infinity;
+      for (const m of order) {
+        work.make(m);
+        // Without noise only the best move matters, so prune with alpha.
+        const score = -s.negamax(work, depth - 1, -Infinity, cfg.noise ? Infinity : -alpha, 1);
+        if (score > alpha) alpha = score;
+        work.unmake();
+        if (s.stopped) { aborted = true; break; }
+        results.push({ move: m, score });
+      }
+      if (aborted && depth > 1) break;
+      if (aborted) { // depth 1 never finished: score what we have
+        if (results.length) bestResults = results;
+        break;
+      }
+      results.sort((a, b) => b.score - a.score);
+      bestResults = results;
+      depthDone = depth;
+      order = results.map((r) => r.move);
+      if (results[0].score > MATE - 1000) break; // found a mate
+      if (depth >= 2 && Date.now() > s.deadline - cfg.ms * 0.4 && cfg.maxDepth > 3) break;
+    }
+    if (!bestResults || !bestResults.length) {
+      return { move: legal[0], score: 0, depth: 0, nodes: s.nodes };
+    }
+    let pick = bestResults[0];
+    if (cfg.noise) {
+      let bestNoisy = -Infinity;
+      for (const r of bestResults) {
+        if (r.score > MATE - 1000) { pick = r; break; }
+        const v = r.score + (rand() * 2 - 1) * cfg.noise;
+        if (v > bestNoisy) { bestNoisy = v; pick = r; }
+      }
+    }
+    return { move: pick.move, score: pick.score, depth: depthDone, nodes: s.nodes };
+  }
+
+  return { chooseMove, evaluate, MATE, VALUE };
+});
+</script>
+<script>/* Remorse Chess UI. Depends on RemorseEngine and RemorseAI globals. */
+(function () {
+  'use strict';
+  const E = window.RemorseEngine;
+  const AI = window.RemorseAI;
+  const { Game, uci, mFrom, mTo, mPromo, mFlags, F_ABSOLVE, WHITE, BLACK } = E;
+
+  const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
+  const VS = '︎'; // force text presentation (no emoji pawns on iOS)
+  const OPP_NAMES = { easy: 'Novice', medium: 'Deacon', hard: 'Bishop', claude: 'Claude', human: 'Player 2' };
+  const STORE_KEY = 'remorse-chess-v1';
+
+  const $ = (id) => document.getElementById(id);
+
+  const S = {
+    game: new Game(),
+    settings: { opponent: 'medium', side: 'w', chosenSide: 'w' },
+    selected: -1,
+    flipped: false,
+    thinking: false,
+    token: 0,
+    pendingPromo: null,
+    lastEntry: null,
+    claudeNote: '',
+    claudeAbort: null,
+    hint: null,
+    overShown: false,
+  };
+
+  /* ---------- persistence ---------- */
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(snapshot()));
+    } catch (e) { /* storage unavailable */ }
+  }
+  function snapshot() {
+    return {
+      settings: S.settings,
+      startFen: S.game.startFen,
+      moves: S.game.history.map((h) => h.uci),
+      flipped: S.flipped,
+    };
+  }
+  function restore(data) {
+    if (!data || !data.settings) return false;
+    try {
+      const g = new Game(data.startFen || undefined);
+      for (const u of data.moves || []) {
+        const m = g.findMove(u);
+        if (m === undefined) return false;
+        g.play(m);
+      }
+      S.game = g;
+      S.settings = Object.assign(S.settings, data.settings);
+      S.flipped = !!data.flipped;
+      S.lastEntry = g.history[g.history.length - 1] || null;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* ---------- helpers ---------- */
+  const humanColor = () => (S.settings.side === 'b' ? BLACK : WHITE);
+  const isHumanTurn = () => S.settings.opponent === 'human' || S.game.pos.turn === humanColor();
+  const colorName = (c) => (c === WHITE ? 'White' : 'Black');
+
+  function playerName(color) {
+    if (S.settings.opponent === 'human') return colorName(color);
+    return color === humanColor() ? 'You' : OPP_NAMES[S.settings.opponent];
+  }
+
+  /* ---------- Claude availability ---------- */
+  let samplePromise = null;
+  function getSample() {
+    if (!samplePromise) {
+      samplePromise = (async () => {
+        try {
+          if (!window.claude || typeof window.claude.use !== 'function') return null;
+          return await window.claude.use('sample');
+        } catch (e) { return null; }
+      })();
+    }
+    return samplePromise;
+  }
+
+  /* ---------- bot worker ---------- */
+  let worker = null, workerReqs = new Map(), workerSeq = 0;
+  function initWorker() {
+    try {
+      const src = $('engine-src').textContent + '\n' + $('ai-src').textContent + '\n' +
+        'self.onmessage=function(e){var d=e.data;var p=new RemorseEngine.Position(d.fen);' +
+        'var r=RemorseAI.chooseMove(p,d.level);self.postMessage({id:d.id,uci:r?RemorseEngine.uci(r.move):null,score:r?r.score:0,depth:r?r.depth:0});};';
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      worker = new Worker(url);
+      worker.onmessage = (e) => {
+        const cb = workerReqs.get(e.data.id);
+        workerReqs.delete(e.data.id);
+        if (cb) cb(e.data);
+      };
+      worker.onerror = () => { worker = null; };
+    } catch (e) { worker = null; }
+  }
+  function botMove(fen, level) {
+    return new Promise((resolve) => {
+      if (worker) {
+        const id = ++workerSeq;
+        let done = false;
+        workerReqs.set(id, (d) => { done = true; resolve(d.uci); });
+        worker.postMessage({ id, fen, level });
+        // If the worker dies silently, fall back to the main thread.
+        setTimeout(() => { if (!done) { workerReqs.delete(id); worker = null; resolve(mainThreadMove(fen, level)); } }, 12000);
+      } else {
+        setTimeout(() => resolve(mainThreadMove(fen, level)), 30);
+      }
+    });
+  }
+  function mainThreadMove(fen, level) {
+    const r = AI.chooseMove(new E.Position(fen), level);
+    return r ? uci(r.move) : null;
+  }
+
+  /* ---------- rendering ---------- */
+  function squareEl(sq) { return $('board').querySelector(`[data-sq="${sq}"]`); }
+
+  function buildBoard() {
+    const board = $('board');
+    board.innerHTML = '';
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const rank = S.flipped ? row : 7 - row;
+        const file = S.flipped ? 7 - col : col;
+        const sq = rank * 8 + file;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sq ' + ((rank + file) % 2 ? 'light' : 'dark');
+        b.dataset.sq = sq;
+        b.setAttribute('role', 'gridcell');
+        if (col === 0) b.insertAdjacentHTML('beforeend', `<span class="coord rank">${rank + 1}</span>`);
+        if (row === 7) b.insertAdjacentHTML('beforeend', `<span class="coord file">${'abcdefgh'[file]}</span>`);
+        board.appendChild(b);
+      }
+    }
+  }
+
+  function legalFromSelected() {
+    if (S.selected < 0) return [];
+    return S.game.legalMoves().filter((m) => mFrom(m) === S.selected);
+  }
+
+  function render(anim) {
+    const pos = S.game.pos;
+    const status = S.game.status();
+    const legalSel = legalFromSelected();
+    const targets = new Map(); // sq -> 'move' | 'capture' | 'absolve'
+    for (const m of legalSel) {
+      if (mFlags(m) & F_ABSOLVE) continue;
+      const to = mTo(m);
+      let kind = pos.isCapture(m) ? 'capture' : 'move';
+      if (kind === 'move' && E.typeOf(pos.board[mFrom(m)]) === E.BISHOP && !E.isGuilty(pos.board[mFrom(m)])) {
+        if (pos.absolvesBy(m).length) kind = 'absolve';
+      }
+      targets.set(to, kind);
+    }
+    const last = S.lastEntry;
+    const checkSq = status.inCheck || (status.over && status.reason === 'checkmate') ? pos.kingSquare(pos.turn) : -1;
+    const justGuilty = anim && last ? last.info.becameGuilty : -1;
+    const justAbsolved = anim && last ? new Set(last.info.absolved.concat(last.info.cleansed)) : new Set();
+
+    for (let sq = 0; sq < 64; sq++) {
+      const el = squareEl(sq);
+      el.querySelectorAll('.piece,.dot,.ring').forEach((n) => n.remove());
+      el.classList.toggle('sel', sq === S.selected);
+      el.classList.toggle('last', !!last && (sq === mFrom(last.move) || sq === mTo(last.move)) && sq !== S.selected);
+      el.classList.toggle('check', sq === checkSq);
+      const p = pos.board[sq];
+      let label = E.sqName(sq);
+      if (p) {
+        const c = E.colorOf(p), t = E.typeOf(p), guilty = E.isGuilty(p);
+        const piece = document.createElement('span');
+        piece.className = 'piece ' + (c === WHITE ? 'w' : 'b');
+        if (guilty) piece.classList.add('guilty');
+        if (guilty && t === E.BISHOP) piece.classList.add('cleansing');
+        if (sq === justGuilty) piece.classList.add('just-guilty');
+        if (justAbsolved.has(sq)) piece.classList.add('just-absolved');
+        piece.innerHTML = (guilty ? '<span class="token"></span>' : '') + `<span class="g">${GLYPH[t]}${VS}</span>`;
+        el.appendChild(piece);
+        label += ` ${colorName(c)} ${E.NAMES[t]}${guilty ? ', guilt-ridden' : ''}`;
+      }
+      const tk = targets.get(sq);
+      if (tk) {
+        const mark = document.createElement('span');
+        mark.className = tk === 'capture' ? 'ring' : 'dot' + (tk === 'absolve' ? ' absolve' : '');
+        el.appendChild(mark);
+        label += tk === 'absolve' ? ', move here to absolve' : tk === 'capture' ? ', capture' : ', move here';
+      }
+      el.classList.toggle('hint', !!S.hint && (sq === S.hint.from || sq === S.hint.to));
+      el.setAttribute('aria-label', label);
+    }
+
+    // Slide animation for the last move.
+    if (anim && last && !(mFlags(last.move) & F_ABSOLVE) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const fromEl = squareEl(mFrom(last.move)), toEl = squareEl(mTo(last.move));
+      const piece = toEl.querySelector('.piece');
+      if (piece) {
+        const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+        piece.style.transition = 'none';
+        piece.style.transform = `translate(${a.left - b.left}px, ${a.top - b.top}px)`;
+        piece.getBoundingClientRect();
+        piece.style.transition = 'transform 190ms ease-out';
+        piece.style.transform = '';
+      }
+    }
+
+    // Absolve-in-place bar
+    const absolveMove = legalSel.find((m) => mFlags(m) & F_ABSOLVE);
+    $('absolve-bar').hidden = absolveMove === undefined || !isHumanTurn() || S.thinking;
+
+    renderBars(status);
+    renderStatus(status);
+    renderMoves();
+    $('btn-undo').disabled = !canUndo();
+    $('btn-hint').disabled = status.over || !isHumanTurn() || S.thinking;
+    $('claude-note').hidden = !S.claudeNote;
+    $('claude-text').textContent = S.claudeNote;
+  }
+
+  function renderBars(status) {
+    const pos = S.game.pos;
+    const bottomColor = S.flipped ? BLACK : WHITE;
+    const topColor = bottomColor ^ 1;
+    const caps = { 0: [], 1: [] }; // pieces captured BY colour
+    for (const h of S.game.history) {
+      if (h.info.captured) caps[E.colorOf(h.info.mover)].push(h.info.captured);
+    }
+    const guiltCount = [0, 0];
+    for (let s = 0; s < 64; s++) {
+      const p = pos.board[s];
+      if (p && E.isGuilty(p)) guiltCount[E.colorOf(p)]++;
+    }
+    for (const [slot, color] of [['top', topColor], ['bottom', bottomColor]]) {
+      $('name-' + slot).textContent = playerName(color);
+      $('bar-' + slot).classList.toggle('to-move', !status.over && pos.turn === color);
+      const tok = $('tokens-' + slot);
+      tok.innerHTML = guiltCount[color]
+        ? Array(Math.min(guiltCount[color], 8)).fill('<i class="tok"></i>').join('') + `<span>${guiltCount[color]} guilty</span>`
+        : '';
+      const order = [5, 4, 3, 2, 1];
+      const list = caps[color].slice().sort((a, b) => order.indexOf(E.typeOf(a)) - order.indexOf(E.typeOf(b)));
+      $('cap-' + slot).textContent = list.map((p) => GLYPH[E.typeOf(p)] + VS).join('');
+    }
+  }
+
+  function renderStatus(status) {
+    const el = $('status');
+    el.classList.remove('thinking', 'alert', 'done');
+    let text;
+    const pos = S.game.pos;
+    if (status.over) {
+      el.classList.add('done');
+      text = status.reason === 'checkmate'
+        ? `Checkmate. ${playerName(status.winner)} ${playerName(status.winner) === 'You' ? 'win' : 'wins'}.`
+        : `Draw by ${status.reason}.`;
+    } else if (S.thinking) {
+      el.classList.add('thinking');
+      text = S.settings.opponent === 'claude' ? 'Claude is thinking…' : `${OPP_NAMES[S.settings.opponent]} is thinking…`;
+    } else {
+      const who = playerName(pos.turn);
+      if (status.inCheck) el.classList.add('alert');
+      if (S.settings.opponent === 'human') text = `${who} to move${status.inCheck ? ', in check' : ''}`;
+      else text = isHumanTurn() ? (status.inCheck ? 'You are in check' : 'Your move') : `${who} to move`;
+      const cl = S.lastEntry && S.lastEntry.info.cleansed;
+      if (cl && cl.length) {
+        text += `. ${colorName(pos.turn ^ 1)}'s bishop on ${cl.map(E.sqName).join(' and ')} cleansed itself and can capture again`;
+      }
+      const sel = S.selected >= 0 ? pos.board[S.selected] : 0;
+      if (sel && E.isGuilty(sel) && isHumanTurn()) {
+        text += E.typeOf(sel) === E.BISHOP
+          ? '. This bishop is cleansing itself and cannot capture this turn.'
+          : '. This piece is guilt-ridden and cannot capture.';
+      }
+    }
+    $('status-text').textContent = text;
+  }
+
+  function renderMoves() {
+    const ol = $('moves');
+    const h = S.game.history;
+    const startBlack = S.game.startFen.split(' ')[1] === 'b';
+    const items = [];
+    const fmt = (e, i) => {
+      if (!e) return '<span class="mv"></span>';
+      const extra = (e.info.captured ? '<i class="cap" title="capture"></i>' : '') +
+        ((e.info.absolved.length) ? '<span class="abs" title="absolution">✦</span>' : '');
+      return `<span class="mv${i === h.length - 1 ? ' cur' : ''}">${e.san}${extra}</span>`;
+    };
+    let i = 0, num = 1;
+    if (startBlack && h.length) {
+      items.push(`<li><span class="num">${num}.</span><span class="mv">…</span>${fmt(h[0], 0)}</li>`);
+      i = 1; num++;
+    }
+    for (; i < h.length; i += 2, num++) {
+      items.push(`<li><span class="num">${num}.</span>${fmt(h[i], i)}${fmt(h[i + 1], i + 1)}</li>`);
+    }
+    ol.innerHTML = items.join('');
+    ol.scrollTop = ol.scrollHeight;
+  }
+
+  /* ---------- game flow ---------- */
+  function commit(m) {
+    S.token++;
+    S.lastEntry = S.game.play(m);
+    S.selected = -1;
+    S.hint = null;
+    render(true);
+    save();
+    afterMove();
+  }
+
+  function afterMove() {
+    const st = S.game.status();
+    if (st.over) {
+      const token = S.token, len = S.game.history.length;
+      if (!S.overShown) setTimeout(() => {
+        if (token !== S.token || len !== S.game.history.length || !S.game.status().over) return;
+        showOver(S.game.status());
+      }, 650);
+      return;
+    }
+    if (!isHumanTurn()) requestAnimationFrame(() => setTimeout(opponentMove, 120));
+  }
+
+  function showOver(st) {
+    S.overShown = true;
+    const human = S.settings.opponent !== 'human';
+    let title = st.reason === 'checkmate' ? 'Checkmate' : 'Draw';
+    let text;
+    if (st.reason === 'checkmate') {
+      const winner = playerName(st.winner);
+      if (human) {
+        title = winner === 'You' ? 'Absolved and victorious' : 'Checkmate';
+        text = winner === 'You' ? 'You checkmated ' + OPP_NAMES[S.settings.opponent] + '.' : OPP_NAMES[S.settings.opponent] + ' checkmated you.';
+      } else text = `${winner} wins by checkmate.`;
+    } else {
+      text = `The game is drawn by ${st.reason}.`;
+    }
+    const full = Math.ceil(S.game.history.length / 2);
+    text += ` ${full} move${full === 1 ? '' : 's'} played.`;
+    $('over-title').textContent = title;
+    $('over-text').textContent = text;
+    $('sheet-over').hidden = false;
+  }
+
+  async function opponentMove() {
+    if (isHumanTurn() || S.game.status().over || S.thinking) return;
+    const token = ++S.token;
+    S.thinking = true;
+    render(false);
+    const fen = S.game.pos.fen();
+    const started = Date.now();
+    let moveUci = null;
+    if (S.settings.opponent === 'claude') {
+      moveUci = await claudeMove(token);
+    }
+    if (token !== S.token) return;
+    if (!moveUci) {
+      const level = S.settings.opponent === 'claude' ? 'medium' : S.settings.opponent;
+      moveUci = await botMove(fen, level);
+    }
+    if (token !== S.token) return;
+    const wait = Math.max(0, 380 - (Date.now() - started));
+    setTimeout(() => {
+      if (token !== S.token) return;
+      S.thinking = false;
+      const m = moveUci && S.game.findMove(moveUci);
+      if (m === undefined || m === null) { render(false); return; }
+      commit(m);
+    }, wait);
+  }
+
+  /* ---------- Claude opponent ---------- */
+  function describeMove(pos, m, legal) {
+    const san = pos.toSAN(m, legal);
+    const notes = [];
+    if (mFlags(m) & F_ABSOLVE) notes.push('bishop stays put and absolves neighbours');
+    else {
+      if (pos.isCapture(m)) {
+        const capSq = (mFlags(m) & E.F_EP) ? (pos.turn === WHITE ? mTo(m) - 8 : mTo(m) + 8) : mTo(m);
+        notes.push('captures ' + E.NAMES[E.typeOf(pos.board[capSq])] + ', your piece becomes guilt-ridden');
+      }
+      const abs = pos.absolvesBy(m);
+      if (abs.length) notes.push('absolves ' + abs.map((s) => E.NAMES[E.typeOf(pos.board[s])] + ' ' + E.sqName(s)).join(', '));
+      if (mPromo(m)) notes.push('promotes');
+    }
+    return `${uci(m)} = ${san}${notes.length ? ' (' + notes.join('; ') + ')' : ''}`;
+  }
+
+  function boardDiagram(pos) {
+    const rows = [];
+    for (let r = 7; r >= 0; r--) {
+      let line = (r + 1) + ' ';
+      for (let f = 0; f < 8; f++) {
+        const p = pos.board[r * 8 + f];
+        if (!p) { line += ' .  '; continue; }
+        const ch = E.PIECE_CHARS[E.typeOf(p)];
+        line += ' ' + (E.colorOf(p) === WHITE ? ch.toUpperCase() : ch) + (E.isGuilty(p) ? '* ' : '  ');
+      }
+      rows.push(line);
+    }
+    rows.push('   a   b   c   d   e   f   g   h');
+    return rows.join('\n');
+  }
+
+  async function claudeMove(token) {
+    const sample = await getSample();
+    if (!sample) {
+      S.claudeNote = 'Claude is only available when this game is opened inside Claude. The Deacon bot moved instead.';
+      return null;
+    }
+    const pos = S.game.pos;
+    const legal = pos.legalMoves();
+    const me = colorName(pos.turn);
+    const guilty = [[], []];
+    for (let s = 0; s < 64; s++) {
+      const p = pos.board[s];
+      if (p && E.isGuilty(p)) guilty[E.colorOf(p)].push(E.PIECE_CHARS[E.typeOf(p)].toUpperCase() + E.sqName(s));
+    }
+    const hist = S.game.history.map((h, i) => (i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ` : '') + h.san).join(' ');
+    const prompt = [
+      `You are playing Remorse Chess as ${me}. Play to win.`,
+      '',
+      'Rules: normal chess, except pieces feel guilt.',
+      '- A piece that captures becomes guilt-ridden (marked *). Guilt-ridden pieces cannot capture, and so they do not give check, but they move normally.',
+      '- A non-guilty bishop that ends its move on a square touching (8 neighbours) guilt-ridden friendly pieces absolves them. A bishop already touching one may absolve in place (move written like f4f4).',
+      '- A bishop that captures is guilty through its owner\'s next turn, then cleanses itself.',
+      '- With no bishops, guilt is permanent until a pawn promotes to a bishop. Win by checkmate.',
+      'Strategy notes: capturing with a valuable piece disarms it until a bishop reaches it, so think about which piece captures; enemy guilty pieces are harmless attackers; keep your bishops.',
+      '',
+      `Position (FEN, * = guilt-ridden): ${pos.fen()}`,
+      boardDiagram(pos),
+      `Guilt-ridden White pieces: ${guilty[0].join(', ') || 'none'}. Guilt-ridden Black pieces: ${guilty[1].join(', ') || 'none'}.`,
+      pos.inCheck() ? `${me} is in check.` : '',
+      `Moves so far: ${hist || '(none)'}`,
+      '',
+      'Your legal moves (id = notation (effects)):',
+      legal.map((m) => describeMove(pos, m, legal)).join('\n'),
+      '',
+      'Reply with only JSON: {"move": "<one id from the list>", "comment": "<one short in-character sentence to your opponent, max 20 words>"}',
+    ].filter((x) => x !== null).join('\n');
+
+    S.claudeNote = 'Thinking about the position…';
+    $('btn-claude-skip').hidden = false;
+    render(false);
+    const ctl = new AbortController();
+    S.claudeAbort = ctl;
+    try {
+      const out = await sample.json(prompt, { signal: ctl.signal, cache: false });
+      if (token !== S.token) return null;
+      const want = out && typeof out.move === 'string' ? out.move.trim().toLowerCase() : '';
+      const m = legal.find((x) => uci(x) === want);
+      S.claudeNote = out && typeof out.comment === 'string' ? out.comment.slice(0, 200) : '';
+      if (m === undefined) {
+        S.claudeNote = `Claude suggested "${want || '?'}", which is not legal here, so the Deacon bot moved instead.`;
+        return null;
+      }
+      return uci(m);
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'cancelled') S.claudeNote = 'You skipped Claude this turn. The Deacon bot moved instead.';
+      else if (code === 'not_granted' || code === 'sampling_disabled') S.claudeNote = 'Claude was not allowed to play, so the Deacon bot is moving. Start a new game to pick another opponent.';
+      else if (code === 'rate_limited') S.claudeNote = 'Claude is rate limited right now. The Deacon bot moved instead.';
+      else S.claudeNote = 'Claude could not answer this time. The Deacon bot moved instead.';
+      return null;
+    } finally {
+      S.claudeAbort = null;
+      $('btn-claude-skip').hidden = true;
+    }
+  }
+
+  /* ---------- input ---------- */
+  function onSquare(sq) {
+    if (S.thinking || S.game.status().over || !isHumanTurn() || S.pendingPromo) return;
+    const pos = S.game.pos;
+    const p = pos.board[sq];
+    if (S.selected >= 0) {
+      const cands = legalFromSelected().filter((m) => mTo(m) === sq && !(mFlags(m) & F_ABSOLVE));
+      if (cands.length > 1) { showPromo(cands); return; }
+      if (cands.length === 1) { commit(cands[0]); return; }
+    }
+    if (p && E.colorOf(p) === pos.turn && sq !== S.selected) S.selected = sq;
+    else S.selected = -1;
+    S.hint = null;
+    render(false);
+  }
+
+  function showPromo(cands) {
+    S.pendingPromo = cands;
+    const color = S.game.pos.turn === WHITE ? 'w' : 'b';
+    const row = $('promo-row');
+    row.innerHTML = '';
+    for (const t of [E.QUEEN, E.ROOK, E.BISHOP, E.KNIGHT]) {
+      const m = cands.find((x) => mPromo(x) === t);
+      if (m === undefined) continue;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Promote to ' + E.NAMES[t]);
+      b.innerHTML = `<span class="${color}">${GLYPH[t]}${VS}</span>`;
+      b.addEventListener('click', (e) => { e.stopPropagation(); closePromo(); commit(m); });
+      row.appendChild(b);
+    }
+    $('promo').hidden = false;
+  }
+
+  function closePromo() {
+    S.pendingPromo = null;
+    $('promo').hidden = true;
+  }
+
+  function canUndo() {
+    if (S.settings.opponent === 'human') return S.game.history.length > 0;
+    const hc = humanColor();
+    return S.game.history.some((h) => E.colorOf(h.info.mover) === hc);
+  }
+
+  function undo() {
+    if (!canUndo()) return;
+    closePromo();
+    S.token++; // cancel any pending opponent move
+    if (S.claudeAbort) S.claudeAbort.abort();
+    S.thinking = false;
+    S.game.undo();
+    // Against a bot, undo back to the human's turn.
+    if (S.settings.opponent !== 'human') {
+      while (S.game.history.length && !isHumanTurn()) S.game.undo();
+    }
+    S.lastEntry = S.game.history[S.game.history.length - 1] || null;
+    S.selected = -1;
+    S.hint = null;
+    S.overShown = false;
+    S.claudeNote = '';
+    $('sheet-over').hidden = true;
+    render(false);
+    save();
+    afterMove();
+  }
+
+  async function hint() {
+    if (!isHumanTurn() || S.thinking || S.game.status().over) return;
+    $('btn-hint').disabled = true;
+    const u = await botMove(S.game.pos.fen(), 'medium');
+    const m = u && S.game.findMove(u);
+    if (m === undefined || m === null) return;
+    S.hint = { from: mFrom(m), to: mTo(m) };
+    render(false);
+    $('status-text').textContent = 'Hint: ' + S.game.pos.toSAN(m) + (mFlags(m) & F_ABSOLVE ? ' (absolve in place)' : '');
+  }
+
+  function newGame(settings) {
+    S.token++;
+    closePromo();
+    $('sheet-over').hidden = true;
+    if (S.claudeAbort) S.claudeAbort.abort();
+    S.settings = settings;
+    S.game = new Game();
+    S.lastEntry = null;
+    S.selected = -1;
+    S.hint = null;
+    S.thinking = false;
+    S.overShown = false;
+    S.claudeNote = '';
+    S.flipped = settings.opponent !== 'human' && settings.side === 'b';
+    buildBoard();
+    render(false);
+    save();
+    afterMove();
+  }
+
+  /* ---------- settings sheet ---------- */
+  function openSettings() {
+    const s = S.settings;
+    const opp = document.getElementById('opp-' + s.opponent);
+    if (opp && !opp.disabled) opp.checked = true; else $('opp-medium').checked = true;
+    (document.getElementById('side-' + (s.chosenSide || s.side)) || $('side-w')).checked = true;
+    $('sheet-settings').hidden = false;
+  }
+  function readSettings() {
+    const opponent = (document.querySelector('input[name="opp"]:checked') || {}).value || 'medium';
+    let chosenSide = (document.querySelector('input[name="side"]:checked') || {}).value || 'w';
+    const side = chosenSide === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : chosenSide;
+    return { opponent, side, chosenSide };
+  }
+
+  function wire() {
+    $('board').addEventListener('click', (e) => {
+      const b = e.target.closest('.sq');
+      if (b) onSquare(+b.dataset.sq);
+    });
+    $('btn-absolve').addEventListener('click', () => {
+      const m = legalFromSelected().find((x) => mFlags(x) & F_ABSOLVE);
+      if (m !== undefined) commit(m);
+    });
+    $('btn-undo').addEventListener('click', undo);
+    $('promo').addEventListener('click', (e) => { if (!e.target.closest('button')) { closePromo(); render(false); } });
+    $('btn-flip').addEventListener('click', () => { S.flipped = !S.flipped; buildBoard(); render(false); save(); });
+    $('btn-hint').addEventListener('click', hint);
+    $('btn-rules').addEventListener('click', () => { $('sheet-rules').hidden = false; });
+    $('btn-rules-close').addEventListener('click', () => { $('sheet-rules').hidden = true; try { localStorage.setItem(STORE_KEY + '-rules', '1'); } catch (e) { /* ignore */ } });
+    $('btn-settings').addEventListener('click', openSettings);
+    $('btn-settings-cancel').addEventListener('click', () => { $('sheet-settings').hidden = true; });
+    $('btn-start').addEventListener('click', () => { $('sheet-settings').hidden = true; newGame(readSettings()); });
+    $('btn-over-new').addEventListener('click', () => { $('sheet-over').hidden = true; openSettings(); });
+    $('btn-over-review').addEventListener('click', () => { $('sheet-over').hidden = true; });
+    $('btn-claude-skip').addEventListener('click', () => { if (S.claudeAbort) S.claudeAbort.abort(); });
+    for (const id of ['sheet-settings', 'sheet-rules', 'sheet-over']) {
+      $(id).addEventListener('click', (e) => { if (e.target === $(id)) $(id).hidden = true; });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && S.pendingPromo) closePromo();
+      if (e.key === 'Escape') for (const id of ['sheet-settings', 'sheet-rules', 'sheet-over']) $(id).hidden = true;
+    });
+  }
+
+  async function checkClaude() {
+    const label = $('claude-avail');
+    const input = $('opp-claude');
+    const sample = await getSample();
+    if (sample) {
+      label.textContent = 'Uses your Claude account';
+      input.disabled = false;
+    } else {
+      label.textContent = 'Only when opened in Claude';
+      input.disabled = true;
+      if (S.settings.opponent === 'claude' && !isHumanTurn()) S.claudeNote = '';
+    }
+  }
+
+  /* ---------- boot ---------- */
+  function start(hotData) {
+    initWorker();
+    wire();
+    let restored = false;
+    if (hotData && hotData.moves) restored = restore(hotData);
+    if (!restored) {
+      try { restored = restore(JSON.parse(localStorage.getItem(STORE_KEY) || 'null')); } catch (e) { restored = false; }
+    }
+    buildBoard();
+    render(false);
+    $('opp-claude').disabled = true;
+    checkClaude();
+    let seenRules = false;
+    try { seenRules = localStorage.getItem(STORE_KEY + '-rules') === '1'; } catch (e) { seenRules = false; }
+    if (!restored && !seenRules) $('sheet-rules').hidden = false;
+    const st = S.game.status();
+    if (st.over) S.overShown = true;
+    afterMove();
+
+    // Test and debugging hook.
+    window.__remorse = {
+      state: () => ({ fen: S.game.pos.fen(), turn: S.game.pos.turn, status: S.game.status(), history: S.game.history.map((h) => h.san), thinking: S.thinking, human: isHumanTurn(), settings: S.settings }),
+      legal: () => S.game.legalMoves().map(uci),
+      newGame: (opponent, side) => newGame({ opponent, side, chosenSide: side }),
+    };
+  }
+
+  if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
+    try { window.claude.hot.snapshot(snapshot); } catch (e) { /* ignore */ }
+  }
+  const boot = () => (window.claude && window.claude.hot && window.claude.hot.ready)
+    ? window.claude.hot.ready(start)
+    : start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  // Offline support when installed from a normal web host.
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && document.querySelector('link[rel="manifest"]')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "remorse-chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chess where captures make pieces guilt-ridden until a bishop absolves them.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.js && node scripts/icons.js",
+    "test": "node --test test/engine.test.js",
+    "serve": "cd dist && python3 -m http.server 8765",
+    "e2e": "node test/e2e.js http://localhost:8765/ 4"
+  }
+}
