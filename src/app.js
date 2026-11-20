@@ -661,6 +661,15 @@
     board.addEventListener('pointerup', onPointerUp);
     board.addEventListener('pointercancel', onPointerCancel);
     board.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Stop the browser from scrolling, selecting or long-pressing while a finger is on the board.
+    for (const type of ['touchstart', 'touchmove']) {
+      board.addEventListener(type, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+    }
+    board.addEventListener('dragstart', (e) => e.preventDefault());
+    // Never let the page itself scroll or bounce.
+    document.addEventListener('touchmove', (e) => {
+      if (e.cancelable && !e.target.closest('.sheet-body')) e.preventDefault();
+    }, { passive: false });
     // Keyboard activation only: pointer taps are handled above.
     board.addEventListener('click', (e) => {
       if (e.detail !== 0) return;

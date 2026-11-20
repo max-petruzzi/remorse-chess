@@ -24,7 +24,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0;
   background: var(--bg);
@@ -32,8 +32,9 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.4;
-  overflow: hidden auto;
+  overflow: hidden;
   overscroll-behavior: none;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
 }
@@ -42,8 +43,8 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
 
 .app {
   height: 100%;
-  min-height: 470px;
-  max-width: 620px;
+  max-width: 760px;
+  touch-action: none;
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -93,7 +94,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
 .captured .pc-b .b { stroke: var(--pc-black-line); stroke-width: 4; }
 
 /* Board */
-.board-area { flex: 1 1 0; min-height: 0; max-height: min(calc(100vw - 32px), 588px); container-type: size; display: grid; place-items: center; }
+.board-area { flex: 1 1 0; min-height: 0; margin-inline: -8px; max-height: min(calc(100vw - 16px), 744px); container-type: size; display: grid; place-items: center; }
 .board-box { position: relative; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 .board {
   display: grid;
@@ -229,6 +230,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
 
 /* Dialogs */
 .sheet-back {
+  touch-action: manipulation;
   position: fixed; inset: 0; z-index: 50;
   background: rgba(6, 5, 9, 0.7);
   display: flex; align-items: center; justify-content: center;
@@ -249,7 +251,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold
   overflow: hidden;
 }
 @keyframes rise { from { transform: translateY(12px); opacity: 0; } }
-.sheet-body { padding: 20px 20px 4px; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.sheet-body { padding: 20px 20px 4px; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; min-height: 0; }
 .sheet h2 { font-family: var(--font-display); letter-spacing: 0.05em; margin: 0 0 10px; font-size: 1.2rem; text-wrap: balance; }
 .sheet p { margin: 0 0 12px; }
 .sheet fieldset { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
