@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Remorse Chess</title>
 <meta name="description" content="Chess where every capture leaves a piece guilt-ridden until a bishop absolves it. Play against a bot on your phone.">
-<meta name="theme-color" content="#15121d">
+<meta name="theme-color" content="#121016">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,31 +15,33 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+Symbols+2&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { height: 100dvh; }
 [hidden] { display: none !important; }
-/* Layout: one candlelit column on phones; board left, ledger right on wide screens.
-   A deliberately single, dark "chapel at night" look. */
+/* Layout: a single-screen app. Header, opponent, board, you, status, dock, tools
+   stack in one column that exactly fills the viewport; the board takes the slack. */
 :root {
-  --night: #15121d;
-  --night-2: #1e1a29;
-  --night-3: #2a2438;
-  --ink: #ece4d4;
-  --ink-dim: #a69cb5;
-  --candle: #e9b44c;
-  --candle-soft: rgba(233, 180, 76, 0.18);
-  --wax: #9b2c3d;
-  --wax-glow: rgba(196, 50, 72, 0.55);
-  --sq-light: #d9cdb6;
-  --sq-dark: #7b6b8c;
-  --sq-sel: #e9c46a;
-  --piece-white: #f6efe1;
-  --piece-black: #221b2b;
-  --check: rgba(214, 48, 70, 0.75);
-  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
-  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-  --font-piece: "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", serif;
+  --bg: #121016;
+  --surface: #1c1922;
+  --surface-2: #27232f;
+  --line: rgba(240, 232, 218, 0.1);
+  --ink: #f0e8da;
+  --ink-dim: #9d95a8;
+  --gold: #e3b458;
+  --gold-soft: rgba(227, 180, 88, 0.16);
+  --wax: #c8344c;
+  --wax-deep: #7c1a2b;
+  --sq-light: #e6dfd0;
+  --sq-dark: #8a7c99;
+  --pc-white: #f7f1e4;
+  --pc-white-line: #211b28;
+  --pc-black: #2b2533;
+  --pc-black-edge: #0e0b12;
+  --pc-black-line: #b5aac4;
+  --font-display: "Cinzel", Georgia, serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
 }
 
@@ -47,311 +49,269 @@
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: radial-gradient(ellipse at 50% -10%, #2b2140 0%, var(--night) 60%) fixed, var(--night);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.4;
+  overflow: hidden auto;
+  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
-button { font: inherit; color: inherit; }
-button:focus-visible, input:focus-visible + span { outline: 2px solid var(--candle); outline-offset: 2px; }
+button { font: inherit; color: inherit; touch-action: manipulation; }
+button:focus-visible, input:focus-visible + span { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .app {
-  max-width: 1080px;
+  height: 100%;
+  min-height: 470px;
+  max-width: 620px;
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 12px 28px;
+  padding-block: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
 }
 
 /* Header */
-.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.brand h1 {
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; min-height: 36px; }
+.top h1 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1.35rem, 5vw, 1.9rem);
-  letter-spacing: 0.06em;
-  margin: 0;
-  line-height: 1.1;
-  text-wrap: balance;
-}
-.tagline { margin: 2px 0 0; color: var(--ink-dim); font-size: 0.85rem; letter-spacing: 0.02em; }
-.top-actions { display: flex; gap: 8px; }
-.icon-btn {
-  background: var(--night-3);
-  border: 1px solid rgba(236, 228, 212, 0.14);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 0.85rem;
+  font-size: clamp(0.92rem, 4.6vw, 1.15rem);
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin: 0;
+  white-space: nowrap;
+}
+.top-actions { display: flex; gap: 6px; }
+.pill {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink);
   cursor: pointer;
+  white-space: nowrap;
 }
-.icon-btn:hover { border-color: var(--candle); }
+.pill:hover { border-color: var(--gold); }
 
-/* Stage */
-.stage { display: grid; grid-template-columns: 1fr; gap: 14px; }
-@media (min-width: 900px) {
-  .stage { grid-template-columns: minmax(0, 600px) minmax(0, 1fr); align-items: start; }
+/* Player bars */
+.player-bar { display: flex; align-items: center; gap: 10px; height: 24px; flex: none; font-size: 0.9rem; }
+.player-bar .who { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+.player-bar .who::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--line);
 }
-.board-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.side-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-
-.player-bar {
-  display: flex; align-items: center; gap: 10px; min-height: 30px;
-  font-size: 0.9rem; flex-wrap: wrap;
-}
-.player-bar .who { font-weight: 600; letter-spacing: 0.02em; }
-.player-bar.to-move .who::before {
-  content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--candle); margin-right: 7px; vertical-align: 1px;
-  box-shadow: 0 0 10px var(--candle);
-}
-.tokens { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-dim); font-size: 0.8rem; }
-.tokens .tok { width: 10px; height: 10px; border-radius: 50%; background: var(--wax); box-shadow: 0 0 6px var(--wax-glow); }
-.captured { margin-left: auto; font-family: var(--font-piece); font-size: 1.05rem; color: var(--ink-dim); letter-spacing: -0.05em; }
+.player-bar.to-move .who::before { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 8px var(--gold); }
+.tokens { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-dim); font-size: 0.78rem; }
+.tokens .tok { width: 8px; height: 8px; border-radius: 50%; background: var(--wax); }
+.captured { margin-left: auto; display: inline-flex; align-items: center; height: 20px; }
+.captured .pc { width: 18px; height: 18px; margin-left: -5px; }
+.captured .pc-b .b { stroke: var(--pc-black-line); stroke-width: 4; }
 
 /* Board */
-.board-wrap { position: relative; width: 100%; max-width: min(600px, 74vh); margin: 0 auto; }
-@media (min-width: 900px) { .board-wrap { max-width: 600px; margin: 0; } }
+.board-area { flex: 1 1 0; min-height: 0; max-height: min(calc(100vw - 32px), 588px); container-type: size; display: grid; place-items: center; }
+.board-box { position: relative; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 .board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  aspect-ratio: 1;
-  width: 100%;
-  max-width: 100%;
-  border-radius: 6px;
+  width: 100%; height: 100%;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 0 0 6px #2f2740, 0 0 0 7px rgba(233, 180, 76, 0.35), 0 18px 50px rgba(0, 0, 0, 0.55);
-  touch-action: manipulation;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.5);
   user-select: none;
   -webkit-user-select: none;
 }
-.sq {
-  position: relative;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  overflow: visible;
-}
+.sq { position: relative; border: 0; padding: 0; margin: 0; display: block; cursor: pointer; min-width: 0; min-height: 0; }
 .sq.light { background: var(--sq-light); }
 .sq.dark { background: var(--sq-dark); }
-.sq.last::after {
-  content: ""; position: absolute; inset: 0; background: rgba(233, 180, 76, 0.32); pointer-events: none;
-}
-.sq.sel::after { content: ""; position: absolute; inset: 0; background: rgba(233, 196, 106, 0.6); pointer-events: none; }
-.sq.hint { box-shadow: inset 0 0 0 4px var(--candle); }
-.sq.sel .piece.cleansing .token { outline-color: var(--ink); }
-.sq.check { background-image: radial-gradient(circle, var(--check) 0%, rgba(214, 48, 70, 0.35) 45%, transparent 72%); }
-.coord {
-  position: absolute; font-size: clamp(8px, 1.9vw, 11px); font-weight: 700; pointer-events: none; opacity: 0.85;
-  font-family: var(--font-body);
-}
-.coord.file { right: 3px; bottom: 1px; }
-.coord.rank { left: 3px; top: 1px; }
+.sq.last::before { content: ""; position: absolute; inset: 0; background: rgba(227, 180, 88, 0.3); pointer-events: none; }
+.sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(227, 180, 88, 0.62); pointer-events: none; }
+.sq.hint { box-shadow: inset 0 0 0 3px var(--gold); }
+.sq.check::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(220, 45, 70, 0.85) 0%, rgba(220, 45, 70, 0.4) 50%, transparent 75%); pointer-events: none; }
+.coord { position: absolute; font-size: 9px; font-weight: 600; line-height: 1; pointer-events: none; opacity: 0.8; z-index: 1; }
+.coord.file { right: 3px; bottom: 2px; }
+.coord.rank { left: 3px; top: 3px; }
 .sq.light .coord { color: var(--sq-dark); }
 .sq.dark .coord { color: var(--sq-light); }
 
-/* Move targets */
 .sq .dot {
-  position: absolute; width: 28%; height: 28%; border-radius: 50%;
-  background: rgba(30, 20, 40, 0.32); pointer-events: none; z-index: 3;
+  position: absolute; left: 36%; top: 36%; width: 28%; height: 28%; border-radius: 50%;
+  background: rgba(24, 18, 32, 0.3); pointer-events: none; z-index: 3;
 }
-.sq .ring {
-  position: absolute; inset: 4%; border-radius: 50%;
-  border: 4px solid rgba(30, 20, 40, 0.38); pointer-events: none; z-index: 3;
-}
-.sq .dot.absolve {
-  width: 36%; height: 36%;
-  background: radial-gradient(circle, #fff3c9 0%, var(--candle) 55%, rgba(233, 180, 76, 0) 75%);
-  box-shadow: 0 0 14px var(--candle);
+.sq .dot.castle { background: none; border: 3px solid rgba(24, 18, 32, 0.4); left: 30%; top: 30%; width: 40%; height: 40%; }
+.sq .ring { position: absolute; inset: 5%; border-radius: 50%; border: 3px solid rgba(24, 18, 32, 0.4); pointer-events: none; z-index: 3; }
+.sq .halo {
+  position: absolute; inset: 3%; border-radius: 50%; pointer-events: none; z-index: 1;
+  border: 2px solid var(--gold);
+  background: radial-gradient(circle, rgba(255, 233, 170, 0.75) 0%, rgba(227, 180, 88, 0.35) 55%, transparent 72%);
 }
 
 /* Pieces */
-.piece {
-  position: relative;
-  z-index: 2;
-  width: 100%; height: 100%;
-  display: grid; place-items: center;
-  font-family: var(--font-piece);
-  font-size: clamp(28px, 9.4vw, 58px);
-  line-height: 1;
-  pointer-events: none;
-  will-change: transform;
-}
-.piece .g { position: relative; z-index: 2; transform: translateY(-2%); }
-.piece.w .g {
-  color: var(--piece-white);
-  -webkit-text-stroke: 1.2px #2a2030;
-  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.35);
-}
-.piece.b .g {
-  color: var(--piece-black);
-  -webkit-text-stroke: 0.7px #8c7d9c;
-  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
-}
-/* The guilt token sits under the piece like a wax seal. */
+.piece { position: absolute; inset: 0; z-index: 2; pointer-events: none; will-change: transform; }
+.pc { display: block; width: 100%; height: 100%; }
+.piece .pc { position: absolute; inset: 4%; width: 92%; height: 92%; filter: drop-shadow(0 1.5px 1px rgba(0, 0, 0, 0.3)); }
+.pc .b { stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; }
+.pc .l { fill: none; stroke-width: 3; stroke-linecap: round; }
+.pc-w .b { fill: var(--pc-white); stroke: var(--pc-white-line); }
+.pc-w .l { stroke: var(--pc-white-line); }
+.pc-w .dot { fill: var(--pc-white-line); stroke: none; }
+.pc-b .b { fill: var(--pc-black); stroke: var(--pc-black-edge); }
+.pc-b .l { stroke: var(--pc-black-line); }
+.pc-b .dot { fill: var(--pc-black-line); stroke: none; }
+
+/* Guilt token: a wax-red disc under the piece. */
 .piece .token {
-  position: absolute; z-index: 1;
-  width: 64%; height: 22%;
-  left: 18%; bottom: 7%;
+  position: absolute; left: 12%; right: 12%; bottom: 3%; height: 24%;
   border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 35%, #d2465c 0%, var(--wax) 55%, #5a1421 100%);
-  box-shadow: 0 0 10px var(--wax-glow), inset 0 -2px 3px rgba(0, 0, 0, 0.45);
+  background: radial-gradient(ellipse at 50% 30%, #e3526a 0%, var(--wax) 50%, var(--wax-deep) 100%);
+  box-shadow: 0 0 0 1px rgba(60, 8, 18, 0.6), 0 0 9px rgba(200, 52, 76, 0.7);
 }
-.piece.guilty .g { filter: saturate(0.6) brightness(0.92); }
-.piece.cleansing .token {
-  background: radial-gradient(ellipse at 50% 35%, #d2465c 0%, var(--wax) 60%, #5a1421 100%);
-  outline: 2px dashed var(--candle);
-  outline-offset: 1px;
-}
-.piece.just-guilty .token { animation: drop 420ms cubic-bezier(.2, 1.4, .4, 1); }
+.piece.guilty .pc { inset: 0 6% 12% 6%; width: 88%; height: 88%; }
+.piece.just-guilty .token { animation: drop 380ms cubic-bezier(.2, 1.4, .4, 1); }
 .piece.just-absolved::before {
-  content: ""; position: absolute; inset: 6%; border-radius: 50%; z-index: 0;
-  background: radial-gradient(circle, rgba(255, 236, 170, 0.95) 0%, rgba(233, 180, 76, 0.5) 45%, transparent 70%);
-  animation: halo 1100ms ease-out forwards;
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 240, 190, 0.95) 0%, rgba(227, 180, 88, 0.5) 45%, transparent 70%);
+  animation: glow 1000ms ease-out forwards;
 }
-@keyframes drop { from { transform: scale(0.2) translateY(-60%); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes halo { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+@keyframes drop { from { transform: scale(0.2); opacity: 0; } }
+@keyframes glow { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 
 /* Promotion picker */
 .promo {
   position: absolute; inset: 0; z-index: 10;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  background: rgba(21, 18, 29, 0.82);
-  backdrop-filter: blur(3px);
-  border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: rgba(18, 16, 22, 0.86);
+  border-radius: 8px;
 }
-.promo p { margin: 0; font-family: var(--font-display); letter-spacing: 0.1em; }
-.promo-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.promo p { margin: 0; font-weight: 600; }
+.promo .promo-cancel { font-weight: 400; font-size: 0.8rem; color: var(--ink-dim); }
+.promo-row { display: flex; gap: 8px; }
 .promo-row button {
-  width: min(64px, 17vw); height: min(64px, 17vw); border-radius: 12px; border: 1px solid rgba(236, 228, 212, 0.25);
-  background: var(--sq-light); font-family: var(--font-piece); font-size: min(44px, 12vw); line-height: 1; cursor: pointer;
-  display: grid; place-items: center; padding: 0;
+  width: min(68px, 20cqw); height: min(68px, 20cqw); border-radius: 12px; border: 0;
+  background: var(--sq-light); cursor: pointer; padding: 4px;
 }
-.promo-row button span.w { color: var(--piece-white); -webkit-text-stroke: 1.2px #2a2030; }
-.promo-row button span.b { color: var(--piece-black); }
-.promo-row button:hover { box-shadow: 0 0 0 3px var(--candle); }
+.promo-row button:hover { box-shadow: 0 0 0 3px var(--gold); }
 
-/* Side column */
-.status {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--night-2);
-  border: 1px solid rgba(236, 228, 212, 0.1);
-  border-radius: 12px;
-  padding: 11px 14px;
-  font-size: 1rem;
-  min-height: 46px;
-}
-.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-dim); flex: none; }
-.status.thinking .status-dot { background: var(--candle); animation: pulse 1s ease-in-out infinite; }
-.status.alert .status-dot { background: #e0485e; }
-.status.done .status-dot { background: var(--candle); }
-@keyframes pulse { 50% { opacity: 0.3; } }
-
-.absolve-bar {
-  display: flex; flex-direction: column; gap: 6px;
-  background: var(--candle-soft); border: 1px solid rgba(233, 180, 76, 0.4);
-  border-radius: 12px; padding: 10px 12px;
-}
-.absolve-bar .hint { color: var(--ink-dim); font-size: 0.85rem; }
+/* Status, Claude note, dock */
+.status { display: flex; align-items: center; gap: 10px; flex: none; min-height: 40px; font-size: 0.95rem; font-weight: 500; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-dim); flex: none; }
+.status.thinking .status-dot { background: var(--gold); animation: pulse 1s ease-in-out infinite; }
+.status.alert .status-dot { background: var(--wax); box-shadow: 0 0 8px var(--wax); }
+.status.done .status-dot { background: var(--gold); }
+@keyframes pulse { 50% { opacity: 0.25; } }
 
 .claude-note {
-  background: var(--night-2); border: 1px solid rgba(233, 180, 76, 0.28); border-radius: 12px; padding: 10px 14px;
+  flex: none; display: flex; gap: 8px; align-items: baseline;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+  font-size: 0.88rem;
 }
-.claude-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-.claude-name { font-family: var(--font-display); letter-spacing: 0.1em; font-size: 0.85rem; color: var(--candle); }
-.claude-note p { margin: 4px 0 0; font-style: italic; }
-.link-btn { background: none; border: 0; padding: 0; color: var(--ink-dim); text-decoration: underline; cursor: pointer; font-size: 0.85rem; }
+.claude-name { font-weight: 600; color: var(--gold); flex: none; }
+#claude-text { min-width: 0; flex: 1; font-style: italic; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--ink-dim); text-decoration: underline; cursor: pointer; flex: none; }
 
-.controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.btn {
-  background: var(--night-3);
-  border: 1px solid rgba(236, 228, 212, 0.14);
-  border-radius: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-.btn:hover:not(:disabled) { border-color: rgba(233, 180, 76, 0.6); }
-.btn:disabled { opacity: 0.45; cursor: default; }
-.btn-gold { background: var(--candle); color: #2a1d08; border-color: var(--candle); }
-.btn-gold:hover:not(:disabled) { background: #f2c466; }
-
-.moves-box { background: var(--night-2); border: 1px solid rgba(236, 228, 212, 0.08); border-radius: 12px; padding: 10px 14px; }
-.moves-box h2 { font-family: var(--font-display); font-size: 0.85rem; letter-spacing: 0.14em; margin: 0 0 6px; color: var(--ink-dim); font-weight: 600; }
+.dock { flex: none; height: 44px; display: flex; align-items: center; min-width: 0; }
+.absolve-bar { display: flex; align-items: center; gap: 8px; width: 100%; overflow-x: auto; scrollbar-width: none; }
+.absolve-bar::-webkit-scrollbar { display: none; }
+.absolve-bar .btn { flex: none; padding: 9px 14px; white-space: nowrap; }
+.absolve-bar .hint { color: var(--ink-dim); font-size: 0.8rem; white-space: nowrap; }
+.moves-strip { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; height: 38px; display: flex; align-items: center; }
 .moves {
-  list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: 2.2em 1fr 1fr; row-gap: 2px;
-  max-height: 210px; overflow-y: auto;
-  font-variant-numeric: tabular-nums;
+  list-style: none; margin: 0; padding: 0 12px;
+  display: flex; gap: 12px; align-items: center;
+  overflow-x: auto; scrollbar-width: none; white-space: nowrap;
+  font-size: 0.85rem; font-variant-numeric: tabular-nums; width: 100%;
 }
-@media (min-width: 900px) { .moves { max-height: 360px; } }
-.moves li { display: contents; }
+.moves::-webkit-scrollbar { display: none; }
+.moves:empty::before { content: "Moves will appear here"; color: var(--ink-dim); }
+.moves li { display: inline-flex; gap: 6px; align-items: center; flex: none; }
 .moves .num { color: var(--ink-dim); }
-.moves .mv { padding: 1px 4px; border-radius: 4px; }
-.moves .mv.cur { background: var(--candle-soft); }
-.mv .cap { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--wax); margin-left: 4px; vertical-align: 1px; }
-.mv .abs { color: var(--candle); margin-left: 3px; }
-.legend { margin: 8px 0 0; font-size: 0.78rem; color: var(--ink-dim); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.lg-cap { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--wax); }
-.lg-abs { color: var(--candle); margin-left: 8px; }
+.moves .mv.cur { color: var(--gold); font-weight: 600; }
+.mv .cap { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--wax); margin-left: 3px; vertical-align: 1px; }
+.mv .abs { color: var(--gold); margin-left: 2px; }
 
-/* Sheets */
+/* Tools */
+.tools { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tool {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); font-weight: 500; font-size: 0.9rem; cursor: pointer;
+}
+.tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tool:hover:not(:disabled) { border-color: rgba(227, 180, 88, 0.55); }
+.tool:disabled { opacity: 0.4; cursor: default; }
+
+.btn {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 11px 16px; cursor: pointer; font-weight: 600; font-size: 0.92rem;
+}
+.btn:hover:not(:disabled) { border-color: rgba(227, 180, 88, 0.6); }
+.btn-gold { background: var(--gold); color: #2a1d08; border-color: var(--gold); }
+.btn-gold:hover:not(:disabled) { background: #ecc473; }
+
+/* Dialogs */
 .sheet-back {
   position: fixed; inset: 0; z-index: 50;
-  background: rgba(8, 6, 12, 0.66);
-  display: flex; align-items: flex-end; justify-content: center;
-  padding-left: max(12px, env(safe-area-inset-left, 0px));
-  padding-right: max(12px, env(safe-area-inset-right, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  background: rgba(6, 5, 9, 0.7);
+  display: flex; align-items: center; justify-content: center;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overscroll-behavior: contain;
 }
-@media (min-width: 640px) { .sheet-back { align-items: center; } }
 .sheet {
-  width: 100%; max-width: 520px; max-height: 100%;
-  overflow-y: auto;
-  background: var(--night-2);
-  border: 1px solid rgba(233, 180, 76, 0.25);
-  border-radius: 18px 18px 0 0;
-  padding: 18px 18px 20px;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-  animation: rise 220ms ease-out;
+  width: 100%; max-width: 440px; max-height: 100%;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  animation: rise 180ms ease-out;
+  overflow: hidden;
 }
-@media (min-width: 640px) { .sheet { border-radius: 18px; } }
-@keyframes rise { from { transform: translateY(24px); opacity: 0; } }
-.sheet h2 { font-family: var(--font-display); letter-spacing: 0.06em; margin: 0 0 10px; font-size: 1.3rem; text-wrap: balance; }
-.sheet fieldset { border: 0; padding: 0; margin: 0 0 14px; }
-.sheet legend { font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+@keyframes rise { from { transform: translateY(12px); opacity: 0; } }
+.sheet-body { padding: 20px 20px 4px; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.sheet h2 { font-family: var(--font-display); letter-spacing: 0.05em; margin: 0 0 10px; font-size: 1.2rem; text-wrap: balance; }
+.sheet p { margin: 0 0 12px; }
+.sheet fieldset { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+.sheet legend { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; padding: 0; }
 .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.choice-grid label, .seg label { position: relative; cursor: pointer; }
+.choice-grid .wide { grid-column: 1 / -1; }
+.choice-grid label, .seg label { position: relative; cursor: pointer; min-width: 0; }
 .choice-grid input, .seg input { position: absolute; opacity: 0; pointer-events: none; }
 .choice-grid span {
   display: flex; flex-direction: column; gap: 1px; height: 100%;
-  padding: 10px 12px; border-radius: 12px; background: var(--night-3);
-  border: 1px solid rgba(236, 228, 212, 0.1);
+  padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid transparent;
 }
 .choice-grid small { color: var(--ink-dim); font-size: 0.78rem; }
-.choice-grid input:checked + span, .seg input:checked + span { border-color: var(--candle); box-shadow: inset 0 0 0 1px var(--candle); background: #322a20; }
+.choice-grid input:checked + span, .seg input:checked + span { border-color: var(--gold); background: var(--gold-soft); }
 .choice-grid input:disabled + span { opacity: 0.45; cursor: not-allowed; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.seg span { display: block; text-align: center; padding: 9px; border-radius: 10px; background: var(--night-3); border: 1px solid rgba(236, 228, 212, 0.1); font-weight: 600; }
-.sheet-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap; }
-.sheet-actions .btn { min-width: 110px; }
-.rules p { max-width: 62ch; }
-.rule-list { padding-left: 1.2em; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; max-width: 62ch; }
-.rule-list b { color: var(--candle); font-weight: 600; }
-.fine { color: var(--ink-dim); font-size: 0.85rem; }
-.over p { font-size: 1.05rem; }
+.seg span { display: block; text-align: center; padding: 10px 6px; border-radius: 12px; background: var(--surface-2); border: 1px solid transparent; font-weight: 600; }
+.sheet-actions { flex: none; display: flex; gap: 10px; padding: 12px 20px 20px; }
+.sheet-actions .btn { flex: 1; }
+
+.rules .lede { color: var(--ink-dim); }
+.rule-list { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 12px; }
+.rule-list li { display: flex; gap: 12px; align-items: flex-start; font-size: 0.92rem; }
+.rule-list li > div { min-width: 0; }
+.rule-list b { font-weight: 600; }
+.rule-ico { flex: none; width: 22px; height: 22px; border-radius: 50%; margin-top: 1px; position: relative; }
+.tok-ico { background: radial-gradient(ellipse at 50% 30%, #e3526a 0%, var(--wax) 50%, var(--wax-deep) 100%); }
+.no-ico { border: 2px solid var(--wax); }
+.no-ico::after { content: ""; position: absolute; left: 2px; right: 2px; top: 8px; height: 2px; background: var(--wax); transform: rotate(-45deg); }
+.halo-ico { border: 2px solid var(--gold); background: radial-gradient(circle, rgba(255, 233, 170, 0.8) 0%, rgba(227, 180, 88, 0.3) 60%, transparent 75%); }
+.mate-ico { border: 2px solid var(--ink-dim); }
+.mate-ico::after { content: "#"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+.fine { color: var(--ink-dim); font-size: 0.82rem; }
+.over p { font-size: 1rem; color: var(--ink-dim); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -361,94 +321,93 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
 <body>
 <div class="app" id="app">
   <header class="top">
-    <div class="brand">
-      <h1>Remorse Chess</h1>
-      <p class="tagline">Every capture leaves a mark.</p>
-    </div>
+    <h1>Remorse Chess</h1>
     <div class="top-actions">
-      <button class="icon-btn" id="btn-rules" type="button" aria-label="Rules">Rules</button>
-      <button class="icon-btn" id="btn-settings" type="button" aria-label="New game and settings">New</button>
+      <button class="pill" id="btn-rules" type="button">Rules</button>
+      <button class="pill" id="btn-settings" type="button">New game</button>
     </div>
   </header>
 
-  <main class="stage">
-    <section class="board-col">
-      <div class="player-bar" id="bar-top">
-        <span class="who" id="name-top">Bot</span>
-        <span class="tokens" id="tokens-top"></span>
-        <span class="captured" id="cap-top"></span>
-      </div>
+  <div class="player-bar" id="bar-top">
+    <span class="who" id="name-top">Deacon</span>
+    <span class="tokens" id="tokens-top"></span>
+    <span class="captured" id="cap-top"></span>
+  </div>
 
-      <div class="board-wrap">
-        <div class="board" id="board" role="grid" aria-label="Chess board"></div>
-        <div class="promo" id="promo" hidden>
-          <p>Promote to</p>
-          <div class="promo-row" id="promo-row"></div>
-        </div>
+  <div class="board-area">
+    <div class="board-box">
+      <div class="board" id="board" role="grid" aria-label="Chess board"></div>
+      <div class="promo" id="promo" hidden>
+        <p>Promote to</p>
+        <div class="promo-row" id="promo-row"></div>
+        <p class="promo-cancel">Tap outside to cancel</p>
       </div>
+    </div>
+  </div>
 
-      <div class="player-bar" id="bar-bottom">
-        <span class="who" id="name-bottom">You</span>
-        <span class="tokens" id="tokens-bottom"></span>
-        <span class="captured" id="cap-bottom"></span>
-      </div>
-    </section>
+  <div class="player-bar" id="bar-bottom">
+    <span class="who" id="name-bottom">You</span>
+    <span class="tokens" id="tokens-bottom"></span>
+    <span class="captured" id="cap-bottom"></span>
+  </div>
 
-    <section class="side-col">
-      <div class="status" id="status" aria-live="polite">
-        <span class="status-dot" id="status-dot"></span>
-        <span id="status-text">Your move</span>
-      </div>
+  <div class="status" id="status" aria-live="polite">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Your move</span>
+  </div>
 
-      <div class="absolve-bar" id="absolve-bar" hidden>
-        <button class="btn btn-gold" id="btn-absolve" type="button">Absolve in place</button>
-        <span class="hint">Spend this turn forgiving the pieces next to this bishop.</span>
-      </div>
+  <div class="claude-note" id="claude-note" hidden>
+    <span class="claude-name">Claude</span>
+    <span id="claude-text"></span>
+    <button class="link-btn" id="btn-claude-skip" type="button" hidden>Skip</button>
+  </div>
 
-      <div class="claude-note" id="claude-note" hidden>
-        <div class="claude-head">
-          <span class="claude-name">Claude</span>
-          <button class="link-btn" id="btn-claude-skip" type="button" hidden>Let the bot move instead</button>
-        </div>
-        <p id="claude-text"></p>
-      </div>
+  <div class="dock">
+    <div class="absolve-bar" id="absolve-bar" hidden></div>
+    <div class="moves-strip" id="moves-strip">
+      <ol class="moves" id="moves" aria-label="Moves played"></ol>
+    </div>
+  </div>
 
-      <div class="controls">
-        <button class="btn" id="btn-undo" type="button">Undo</button>
-        <button class="btn" id="btn-flip" type="button">Flip board</button>
-        <button class="btn" id="btn-hint" type="button">Hint</button>
-      </div>
-
-      <div class="moves-box">
-        <h2>Moves</h2>
-        <ol class="moves" id="moves"></ol>
-        <p class="legend"><span class="lg-cap"></span> capture, piece now guilt-ridden <span class="lg-abs">✦</span> absolution</p>
-      </div>
-    </section>
-  </main>
+  <nav class="tools" aria-label="Game controls">
+    <button class="tool" id="btn-undo" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-1" transform="translate(0 -5)"/></svg>
+      <span>Undo</span>
+    </button>
+    <button class="tool" id="btn-hint" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1.2 1.5 1.3 2.5h5.4c.1-1 .5-1.7 1.3-2.5A6 6 0 0 0 12 3z"/></svg>
+      <span>Hint</span>
+    </button>
+    <button class="tool" id="btn-flip" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4L3.5 7.5M7 4l3.5 3.5M17 20V4M17 20l-3.5-3.5M17 20l3.5-3.5"/></svg>
+      <span>Flip</span>
+    </button>
+  </nav>
 </div>
 
 <div class="sheet-back" id="sheet-settings" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <h2 id="settings-title">New game</h2>
-    <fieldset>
-      <legend>Opponent</legend>
-      <div class="choice-grid" id="opp-choices">
-        <label><input type="radio" name="opp" value="easy" id="opp-easy"><span><b>Novice</b><small>Makes mistakes</small></span></label>
-        <label><input type="radio" name="opp" value="medium" id="opp-medium"><span><b>Deacon</b><small>Solid, quick</small></span></label>
-        <label><input type="radio" name="opp" value="hard" id="opp-hard"><span><b>Bishop</b><small>Strongest, looks ~3 moves deep</small></span></label>
-        <label id="opp-claude-label"><input type="radio" name="opp" value="claude" id="opp-claude"><span><b>Claude</b><small id="claude-avail">Checking…</small></span></label>
-        <label><input type="radio" name="opp" value="human" id="opp-human"><span><b>Pass &amp; play</b><small>Two people, one phone</small></span></label>
-      </div>
-    </fieldset>
-    <fieldset>
-      <legend>You play</legend>
-      <div class="seg" id="side-choices">
-        <label><input type="radio" name="side" value="w" id="side-w"><span>White</span></label>
-        <label><input type="radio" name="side" value="b" id="side-b"><span>Black</span></label>
-        <label><input type="radio" name="side" value="r" id="side-r"><span>Random</span></label>
-      </div>
-    </fieldset>
+    <div class="sheet-body">
+      <h2 id="settings-title">New game</h2>
+      <fieldset>
+        <legend>Opponent</legend>
+        <div class="choice-grid" id="opp-choices">
+          <label><input type="radio" name="opp" value="easy" id="opp-easy"><span><b>Novice</b><small>Makes mistakes</small></span></label>
+          <label><input type="radio" name="opp" value="medium" id="opp-medium"><span><b>Deacon</b><small>Solid and quick</small></span></label>
+          <label><input type="radio" name="opp" value="hard" id="opp-hard"><span><b>Bishop</b><small>Strongest bot</small></span></label>
+          <label id="opp-claude-label"><input type="radio" name="opp" value="claude" id="opp-claude"><span><b>Claude</b><small id="claude-avail">Checking…</small></span></label>
+          <label class="wide"><input type="radio" name="opp" value="human" id="opp-human"><span><b>Pass &amp; play</b><small>Two people, one phone</small></span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>You play</legend>
+        <div class="seg" id="side-choices">
+          <label><input type="radio" name="side" value="w" id="side-w"><span>White</span></label>
+          <label><input type="radio" name="side" value="b" id="side-b"><span>Black</span></label>
+          <label><input type="radio" name="side" value="r" id="side-r"><span>Random</span></label>
+        </div>
+      </fieldset>
+    </div>
     <div class="sheet-actions">
       <button class="btn" id="btn-settings-cancel" type="button">Cancel</button>
       <button class="btn btn-gold" id="btn-start" type="button">Start game</button>
@@ -458,27 +417,30 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
 
 <div class="sheet-back" id="sheet-rules" hidden>
   <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
-    <h2 id="rules-title">How remorse works</h2>
-    <p>Normal chess rules, with one change: pieces feel guilt.</p>
-    <ol class="rule-list">
-      <li><b>Capturing makes a piece guilt-ridden.</b> It gets a red token underneath.</li>
-      <li><b>Guilt-ridden pieces are pacifists.</b> They move as usual but cannot capture. Because they cannot capture, they also do not give check. A king may step right next to a guilty queen.</li>
-      <li><b>Bishops absolve.</b> Move a bishop onto any square touching a guilty piece of your side, including diagonals, and that piece is forgiven. That uses your turn. Every guilty friend touching the bishop is forgiven at once. A bishop already standing next to a guilty piece can use the <i>Absolve in place</i> button instead of moving.</li>
-      <li><b>Bishops forgive themselves.</b> A bishop that captures is guilty through your next turn, so it cannot capture or absolve on that turn. When that turn ends it is clean again. A dashed gold ring marks a bishop that is cleansing itself.</li>
-      <li><b>No bishops, no forgiveness.</b> Once your bishops are gone, guilt is permanent until a pawn promotes to a bishop.</li>
-      <li><b>Checkmate wins.</b> Stalemate, threefold repetition, the 50-move rule and insufficient material are draws.</li>
-    </ol>
-    <p class="fine">The original rules leave a few details open. This game uses these readings: a promotion that captures produces a guilty piece; a guilty king cannot capture either; capturing en passant counts as a capture; a guilt-ridden pawn stays guilt-ridden when it promotes (a guilty new bishop cleanses itself after one turn). If no pawns or bishops remain and every piece but the kings is guilt-ridden, the game is drawn, since nothing can ever capture again.</p>
+    <div class="sheet-body">
+      <h2 id="rules-title">How remorse works</h2>
+      <p class="lede">Normal chess, except pieces feel guilt.</p>
+      <ul class="rule-list">
+        <li><span class="rule-ico tok-ico"></span><div><b>Capture, and feel guilty.</b> A piece that captures gets a red token.</div></li>
+        <li><span class="rule-ico no-ico"></span><div><b>Guilty pieces can't capture.</b> They still move, but they can't take anything or give check.</div></li>
+        <li><span class="rule-ico halo-ico"></span><div><b>Bishops absolve.</b> Stand a bishop next to a guilty piece of yours, select the bishop and press <i>Absolve</i>. It forgives one piece and uses your turn.</div></li>
+        <li><span class="rule-ico halo-ico"></span><div><b>Bishops feel guilt too.</b> A bishop that captures must spend a turn absolving itself before it can capture or absolve again.</div></li>
+        <li><span class="rule-ico mate-ico"></span><div><b>Checkmate wins.</b> Lose your bishops and guilt is permanent, unless a pawn promotes to a bishop.</div></li>
+      </ul>
+      <p class="fine">Castling: tap your king, then the marked square or the rook.</p>
+    </div>
     <div class="sheet-actions">
-      <button class="btn btn-gold" id="btn-rules-close" type="button">Got it</button>
+      <button class="btn btn-gold" id="btn-rules-close" type="button">Play</button>
     </div>
   </div>
 </div>
 
 <div class="sheet-back" id="sheet-over" hidden>
   <div class="sheet over" role="dialog" aria-modal="true" aria-labelledby="over-title">
-    <h2 id="over-title">Checkmate</h2>
-    <p id="over-text"></p>
+    <div class="sheet-body">
+      <h2 id="over-title">Checkmate</h2>
+      <p id="over-text"></p>
+    </div>
     <div class="sheet-actions">
       <button class="btn" id="btn-over-review" type="button">Review board</button>
       <button class="btn btn-gold" id="btn-over-new" type="button">New game</button>
@@ -492,18 +454,19 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
  * Standard chess, plus guilt:
  *  - A piece that captures becomes guilt-ridden. A guilt-ridden piece cannot
  *    capture (so it also gives no check), but still moves normally.
- *  - A bishop that ends a non-capturing move next to friendly guilt-ridden
- *    pieces (any of the 8 neighbouring squares) absolves all of them.
- *    A bishop already standing next to one may spend its turn absolving
- *    in place instead of moving.
- *  - A bishop that captures becomes guilt-ridden too, but cleanses itself:
- *    it stays guilty through its owner's next turn and is absolved when
- *    that turn ends. A guilty bishop cannot absolve others.
+ *  - Absolution is an action that uses a whole turn. A non-guilty bishop
+ *    standing next to a guilt-ridden friendly piece (any of the 8 neighbouring
+ *    squares) may absolve that one piece instead of moving. Moving a bishop
+ *    next to a guilty piece does nothing by itself.
+ *  - A bishop that captures becomes guilt-ridden too. It cannot absolve others
+ *    while guilty, but it may spend a turn absolving itself.
  *  - With no bishops left, guilt stays until a pawn promotes to a bishop.
  *  - Win by checkmate.
  *
  * Board: Uint8Array(64), index = rank * 8 + file, rank 0 is White's back rank.
  * Piece byte: type (1-6) | colour (0 white / 8 black) | GUILT (16).
+ * An absolution is encoded as a move from the bishop's square to the absolved
+ * piece's square (to == from when a bishop absolves itself) with F_ABSOLVE.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -689,15 +652,6 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       return this.attacked(k, (side === undefined ? this.turn : side) ^ 1);
     }
 
-    /* Can the bishop on `sq` (colour side) absolve anyone adjacent? */
-    hasGuiltyNeighbour(sq, side) {
-      const b = this.board, kg = KING_T[sq];
-      for (let i = 0; i < kg.length; i++) {
-        const p = b[kg[i]];
-        if (p && isGuilty(p) && colorOf(p) === side) return true;
-      }
-      return false;
-    }
 
     pseudoMoves(out) {
       const b = this.board, side = this.turn;
@@ -755,8 +709,15 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
               break;
             }
           }
-          if (t === BISHOP && !guilty && this.hasGuiltyNeighbour(s, side)) {
-            moves.push(encode(s, s, 0, F_ABSOLVE));
+          if (t === BISHOP) {
+            if (guilty) moves.push(encode(s, s, 0, F_ABSOLVE));
+            else {
+              const kg = KING_T[s];
+              for (let i = 0; i < kg.length; i++) {
+                const q = b[kg[i]];
+                if (q && isGuilty(q) && colorOf(q) === side) moves.push(encode(s, kg[i], 0, F_ABSOLVE));
+              }
+            }
           }
         }
       }
@@ -782,40 +743,21 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       }
     }
 
-    _absolveAround(sq, side, changes) {
-      const b = this.board, kg = KING_T[sq];
-      for (let i = 0; i < kg.length; i++) {
-        const n = kg[i], p = b[n];
-        if (p && isGuilty(p) && colorOf(p) === side) {
-          b[n] = p & ~GUILT;
-          if (changes) changes.push(n);
-        }
-      }
-    }
-
     /*
      * Apply a move. Returns an info object describing what happened
-     * (captured piece, squares absolved, squares self-cleansed).
+     * (captured piece, square absolved).
      */
     make(m, wantInfo) {
       const b = this.board;
       this.stack.push({ board: b.slice(), turn: this.turn, castling: this.castling, ep: this.ep, halfmove: this.halfmove, fullmove: this.fullmove });
       const side = this.turn;
       const from = mFrom(m), to = mTo(m), promo = mPromo(m), flags = mFlags(m);
-      const info = wantInfo ? { captured: 0, capturedSq: -1, absolved: [], cleansed: [], becameGuilty: -1 } : null;
-
-      // Bishops that were guilty when this turn began cleanse themselves at its end.
-      let cleanse = null;
-      for (let s = 0; s < 64; s++) {
-        const p = b[s];
-        if (p && (p & (TYPE_MASK | BLACK_BIT | GUILT)) === (BISHOP | (side === BLACK ? BLACK_BIT : 0) | GUILT)) {
-          (cleanse || (cleanse = [])).push(s);
-        }
-      }
+      const info = wantInfo ? { captured: 0, capturedSq: -1, absolved: [], becameGuilty: -1 } : null;
 
       let captured = 0, isPawnMove = false;
       if (flags & F_ABSOLVE) {
-        this._absolveAround(from, side, info && info.absolved);
+        b[to] &= ~GUILT;
+        if (info) info.absolved.push(to);
       } else {
         const p = b[from];
         isPawnMove = typeOf(p) === PAWN;
@@ -837,8 +779,6 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
         if (captured) {
           b[to] |= GUILT;
           if (info) { info.captured = captured; info.capturedSq = capSq; info.becameGuilty = to; }
-        } else if (typeOf(b[to]) === BISHOP && !isGuilty(b[to])) {
-          this._absolveAround(to, side, info && info.absolved);
         }
         // Castling rights
         if (typeOf(p) === KING) this.castling &= side === WHITE ? ~3 : ~12;
@@ -846,16 +786,6 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
         if (from === 7 || to === 7) this.castling &= ~1;
         if (from === 56 || to === 56) this.castling &= ~8;
         if (from === 63 || to === 63) this.castling &= ~4;
-      }
-
-      if (cleanse) {
-        for (const s0 of cleanse) {
-          const s = (s0 === from && !(flags & F_ABSOLVE)) ? to : s0;
-          if (isGuilty(b[s]) && typeOf(b[s]) === BISHOP && colorOf(b[s]) === side) {
-            b[s] &= ~GUILT;
-            if (info) info.cleansed.push(s);
-          }
-        }
       }
 
       this.ep = flags & F_DOUBLE ? (from + to) >> 1 : -1;
@@ -888,15 +818,6 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       if (mFlags(m) & F_EP) return true;
       if (mFlags(m) & F_ABSOLVE) return false;
       return this.board[mTo(m)] !== 0;
-    }
-
-    /* Squares that would be absolved by this move (before making it). */
-    absolvesBy(m) {
-      const side = this.turn;
-      const info = this.make(m, true);
-      this.unmake();
-      void side;
-      return info.absolved;
     }
 
     insufficientMaterial() {
@@ -934,7 +855,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       const p = this.board[from], t = typeOf(p);
       let san;
       if (flags & F_ABSOLVE) {
-        san = 'B' + sqName(from) + '~';
+        san = 'B' + sqName(from) + '~' + (to === from ? '' : sqName(to));
       } else if (flags & F_CASTLE) {
         san = fileOf(to) === 6 ? 'O-O' : 'O-O-O';
       } else {
@@ -965,9 +886,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
     }
   }
 
-  const uci = (m) => (mFlags(m) & F_ABSOLVE)
-    ? sqName(mFrom(m)) + sqName(mFrom(m))
-    : sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? PIECE_CHARS[mPromo(m)] : '');
+  const uci = (m) => sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? PIECE_CHARS[mPromo(m)] : '');
 
   /*
    * Game: a Position plus history, SAN log and result detection.
@@ -1145,11 +1064,11 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       let v = VALUE[t] + (t === KING && endgame ? KING_END[idx] : PST[t][idx]);
       if (p & GUILT) {
         if (t === KING) v -= 40;
-        else if (t === BISHOP) v -= 15; // cleanses itself next turn
+        else if (t === BISHOP) v -= 55; // costs a turn to absolve itself
         else {
           // A guilty piece is a pacifist until a bishop gets to it.
           const redeemable = innocentBishops[c] > 0 || bishops[c] > 0;
-          const factor = redeemable ? (t === PAWN ? 0.15 : 0.18) : (t === PAWN ? 0.3 : 0.4);
+          const factor = redeemable ? (t === PAWN ? 0.15 : 0.22) : (t === PAWN ? 0.3 : 0.4);
           v -= VALUE[t] * factor;
         }
       }
@@ -1329,15 +1248,50 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
   return { chooseMove, evaluate, MATE, VALUE };
 });
 </script>
+<script>/* Remorse Chess piece artwork: original flat SVG pieces on a 100x100 grid. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.RemorsePieces = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  const BASE = '<path d="M23 87h54v-5c0-3.3-2.7-6-6-6H29c-3.3 0-6 2.7-6 6z"/>';
+  // Each entry: solid shapes (class b) then detail lines (class l).
+  const SHAPES = {
+    1: { // pawn
+      b: '<path d="M33 76c1-12 9.5-16 10.5-27h13c1 11 9.5 15 10.5 27z"/><rect x="36.5" y="44" width="27" height="7" rx="3.5"/><circle cx="50" cy="31" r="13.5"/>',
+      l: '' },
+    2: { // knight
+      b: '<path d="M31 76c0-14 6-22 13-30-5 3.5-10.5 5.5-15.5 3.5-4.5-2-5.5-7-2.5-11l14.5-17.5L42 9.5l11 8c14.5 5 22 18.5 22 35 0 9-2.5 16-2.5 23.5z"/>',
+      l: '<path d="M57 24c8.5 6.5 11.5 16.5 11 29"/><circle class="dot" cx="43.5" cy="28" r="2.6"/><path d="M30.5 42.5l3 1.5"/>' },
+    3: { // bishop
+      b: '<path d="M34 76c2-10 9.5-13 9.5-22h13c0 9 7.5 12 9.5 22z"/><path d="M50 15c9.5 8 15.5 17.5 15.5 25.5 0 7.5-6.5 12.5-15.5 12.5s-15.5-5-15.5-12.5C34.5 32.5 40.5 23 50 15z"/><rect x="35.5" y="50" width="29" height="7" rx="3.5"/><circle cx="50" cy="11.5" r="4.8"/>',
+      l: '<path d="M56.5 25.5L47 39"/>' },
+    4: { // rook
+      b: '<path d="M36 36h28l4.5 40h-37z"/><path d="M28 15h10.5v7h6.5v-7h10v7h6.5v-7H72v17c0 2.2-1.8 4-4 4H32c-2.2 0-4-1.8-4-4z"/>',
+      l: '<path d="M37 46h26"/>' },
+    5: { // queen
+      b: '<path d="M33 76c2-7 4.5-11 4.5-16h25c0 5 2.5 9 4.5 16z"/><path d="M22 31l8 28h40l8-28-8.5 13.5L64 23l-7 19.5L50 20l-7 22.5L36 23l-5.5 21.5z"/><rect x="29.5" y="56" width="41" height="7" rx="3.5"/><circle cx="22" cy="29" r="4.3"/><circle cx="36" cy="21" r="4.3"/><circle cx="50" cy="17.5" r="4.3"/><circle cx="64" cy="21" r="4.3"/><circle cx="78" cy="29" r="4.3"/>',
+      l: '' },
+    6: { // king
+      b: '<path d="M33 76c2-7 4.5-10 4.5-15h25c0 5 2.5 8 4.5 15z"/><path d="M46.8 7h6.4v6.5h6.8v6.4h-6.8V31h-6.4V19.9H40v-6.4h6.8z"/><path d="M27 37c8.5-7 15-7.5 23-.5 8-7 14.5-6.5 23 .5l-6 23H33z"/><rect x="30.5" y="56" width="39" height="7" rx="3.5"/>',
+      l: '<path d="M50 40v13"/>' },
+  };
+  function svg(type, color) {
+    const s = SHAPES[type];
+    return '<svg class="pc ' + (color ? 'pc-b' : 'pc-w') + '" viewBox="0 0 100 100" aria-hidden="true" focusable="false">' +
+      '<g class="b">' + BASE + s.b + '</g><g class="l">' + s.l + '</g></svg>';
+  }
+  return { svg };
+});
+</script>
 <script>/* Remorse Chess UI. Depends on RemorseEngine and RemorseAI globals. */
 (function () {
   'use strict';
   const E = window.RemorseEngine;
   const AI = window.RemorseAI;
+  const Pieces = window.RemorsePieces;
   const { Game, uci, mFrom, mTo, mPromo, mFlags, F_ABSOLVE, WHITE, BLACK } = E;
 
-  const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
-  const VS = '︎'; // force text presentation (no emoji pawns on iOS)
   const OPP_NAMES = { easy: 'Novice', medium: 'Deacon', hard: 'Bishop', claude: 'Claude', human: 'Player 2' };
   const STORE_KEY = 'remorse-chess-v1';
 
@@ -1481,24 +1435,20 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
     const pos = S.game.pos;
     const status = S.game.status();
     const legalSel = legalFromSelected();
-    const targets = new Map(); // sq -> 'move' | 'capture' | 'absolve'
+    const targets = new Map(); // sq -> 'move' | 'capture' | 'castle' | 'absolve'
     for (const m of legalSel) {
-      if (mFlags(m) & F_ABSOLVE) continue;
-      const to = mTo(m);
-      let kind = pos.isCapture(m) ? 'capture' : 'move';
-      if (kind === 'move' && E.typeOf(pos.board[mFrom(m)]) === E.BISHOP && !E.isGuilty(pos.board[mFrom(m)])) {
-        if (pos.absolvesBy(m).length) kind = 'absolve';
-      }
-      targets.set(to, kind);
+      const fl = mFlags(m);
+      if (fl & F_ABSOLVE) { if (mTo(m) !== mFrom(m)) targets.set(mTo(m), 'absolve'); continue; }
+      targets.set(mTo(m), pos.isCapture(m) ? 'capture' : (fl & E.F_CASTLE) ? 'castle' : 'move');
     }
     const last = S.lastEntry;
     const checkSq = status.inCheck || (status.over && status.reason === 'checkmate') ? pos.kingSquare(pos.turn) : -1;
     const justGuilty = anim && last ? last.info.becameGuilty : -1;
-    const justAbsolved = anim && last ? new Set(last.info.absolved.concat(last.info.cleansed)) : new Set();
+    const justAbsolved = anim && last ? new Set(last.info.absolved) : new Set();
 
     for (let sq = 0; sq < 64; sq++) {
       const el = squareEl(sq);
-      el.querySelectorAll('.piece,.dot,.ring').forEach((n) => n.remove());
+      el.querySelectorAll('.piece,.dot,.ring,.halo').forEach((n) => n.remove());
       el.classList.toggle('sel', sq === S.selected);
       el.classList.toggle('last', !!last && (sq === mFrom(last.move) || sq === mTo(last.move)) && sq !== S.selected);
       el.classList.toggle('check', sq === checkSq);
@@ -1509,19 +1459,18 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
         const piece = document.createElement('span');
         piece.className = 'piece ' + (c === WHITE ? 'w' : 'b');
         if (guilty) piece.classList.add('guilty');
-        if (guilty && t === E.BISHOP) piece.classList.add('cleansing');
         if (sq === justGuilty) piece.classList.add('just-guilty');
         if (justAbsolved.has(sq)) piece.classList.add('just-absolved');
-        piece.innerHTML = (guilty ? '<span class="token"></span>' : '') + `<span class="g">${GLYPH[t]}${VS}</span>`;
+        piece.innerHTML = (guilty ? '<span class="token"></span>' : '') + Pieces.svg(t, c);
         el.appendChild(piece);
         label += ` ${colorName(c)} ${E.NAMES[t]}${guilty ? ', guilt-ridden' : ''}`;
       }
       const tk = targets.get(sq);
       if (tk) {
         const mark = document.createElement('span');
-        mark.className = tk === 'capture' ? 'ring' : 'dot' + (tk === 'absolve' ? ' absolve' : '');
+        mark.className = tk === 'capture' ? 'ring' : tk === 'absolve' ? 'halo' : 'dot' + (tk === 'castle' ? ' castle' : '');
         el.appendChild(mark);
-        label += tk === 'absolve' ? ', move here to absolve' : tk === 'capture' ? ', capture' : ', move here';
+        label += tk === 'absolve' ? ', can be absolved' : tk === 'capture' ? ', capture' : tk === 'castle' ? ', castle here' : ', move here';
       }
       el.classList.toggle('hint', !!S.hint && (sq === S.hint.from || sq === S.hint.to));
       el.setAttribute('aria-label', label);
@@ -1541,9 +1490,22 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       }
     }
 
-    // Absolve-in-place bar
-    const absolveMove = legalSel.find((m) => mFlags(m) & F_ABSOLVE);
-    $('absolve-bar').hidden = absolveMove === undefined || !isHumanTurn() || S.thinking;
+    // Absolution buttons: absolving is an action that uses the turn.
+    const absolves = isHumanTurn() && !S.thinking && !status.over ? legalSel.filter((m) => mFlags(m) & F_ABSOLVE) : [];
+    const bar = $('absolve-bar');
+    bar.innerHTML = '';
+    for (const m of absolves) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-gold';
+      btn.dataset.uci = uci(m);
+      const self = mTo(m) === mFrom(m);
+      btn.textContent = self ? 'Absolve this bishop' : `Absolve ${E.NAMES[E.typeOf(pos.board[mTo(m)])]} ${E.sqName(mTo(m))}`;
+      bar.appendChild(btn);
+    }
+    if (absolves.length) bar.insertAdjacentHTML('beforeend', '<span class="hint">Uses your turn</span>');
+    bar.hidden = absolves.length === 0;
+    $('moves-strip').hidden = absolves.length > 0;
 
     renderBars(status);
     renderStatus(status);
@@ -1576,7 +1538,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
         : '';
       const order = [5, 4, 3, 2, 1];
       const list = caps[color].slice().sort((a, b) => order.indexOf(E.typeOf(a)) - order.indexOf(E.typeOf(b)));
-      $('cap-' + slot).textContent = list.map((p) => GLYPH[E.typeOf(p)] + VS).join('');
+      $('cap-' + slot).innerHTML = list.map((p) => Pieces.svg(E.typeOf(p), E.colorOf(p))).join('');
     }
   }
 
@@ -1598,15 +1560,11 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       if (status.inCheck) el.classList.add('alert');
       if (S.settings.opponent === 'human') text = `${who} to move${status.inCheck ? ', in check' : ''}`;
       else text = isHumanTurn() ? (status.inCheck ? 'You are in check' : 'Your move') : `${who} to move`;
-      const cl = S.lastEntry && S.lastEntry.info.cleansed;
-      if (cl && cl.length) {
-        text += `. ${colorName(pos.turn ^ 1)}'s bishop on ${cl.map(E.sqName).join(' and ')} cleansed itself and can capture again`;
-      }
       const sel = S.selected >= 0 ? pos.board[S.selected] : 0;
       if (sel && E.isGuilty(sel) && isHumanTurn()) {
-        text += E.typeOf(sel) === E.BISHOP
-          ? '. This bishop is cleansing itself and cannot capture this turn.'
-          : '. This piece is guilt-ridden and cannot capture.';
+        text = E.typeOf(sel) === E.BISHOP
+          ? 'Guilt-ridden bishop: it can move, or spend a turn absolving itself.'
+          : `Guilt-ridden ${E.NAMES[E.typeOf(sel)]}: it can move but not capture.`;
       }
     }
     $('status-text').textContent = text;
@@ -1632,7 +1590,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       items.push(`<li><span class="num">${num}.</span>${fmt(h[i], i)}${fmt(h[i + 1], i + 1)}</li>`);
     }
     ol.innerHTML = items.join('');
-    ol.scrollTop = ol.scrollHeight;
+    ol.scrollLeft = ol.scrollWidth;
   }
 
   /* ---------- game flow ---------- */
@@ -1711,14 +1669,14 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
   function describeMove(pos, m, legal) {
     const san = pos.toSAN(m, legal);
     const notes = [];
-    if (mFlags(m) & F_ABSOLVE) notes.push('bishop stays put and absolves neighbours');
-    else {
+    if (mFlags(m) & F_ABSOLVE) {
+      notes.push(mTo(m) === mFrom(m) ? 'bishop spends the turn absolving itself'
+        : 'bishop spends the turn absolving your ' + E.NAMES[E.typeOf(pos.board[mTo(m)])] + ' on ' + E.sqName(mTo(m)));
+    } else {
       if (pos.isCapture(m)) {
         const capSq = (mFlags(m) & E.F_EP) ? (pos.turn === WHITE ? mTo(m) - 8 : mTo(m) + 8) : mTo(m);
         notes.push('captures ' + E.NAMES[E.typeOf(pos.board[capSq])] + ', your piece becomes guilt-ridden');
       }
-      const abs = pos.absolvesBy(m);
-      if (abs.length) notes.push('absolves ' + abs.map((s) => E.NAMES[E.typeOf(pos.board[s])] + ' ' + E.sqName(s)).join(', '));
       if (mPromo(m)) notes.push('promotes');
     }
     return `${uci(m)} = ${san}${notes.length ? ' (' + notes.join('; ') + ')' : ''}`;
@@ -1760,8 +1718,8 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       '',
       'Rules: normal chess, except pieces feel guilt.',
       '- A piece that captures becomes guilt-ridden (marked *). Guilt-ridden pieces cannot capture, and so they do not give check, but they move normally.',
-      '- A non-guilty bishop that ends its move on a square touching (8 neighbours) guilt-ridden friendly pieces absolves them. A bishop already touching one may absolve in place (move written like f4f4).',
-      '- A bishop that captures is guilty through its owner\'s next turn, then cleanses itself.',
+      '- Absolution is an action that uses a whole turn: a non-guilty bishop standing next to (8 neighbours) a guilt-ridden friendly piece may absolve that one piece instead of moving. Moving a bishop next to a guilty piece does nothing by itself.',
+      '- A bishop that captures is guilt-ridden too; it cannot absolve others, but it may spend a turn absolving itself.',
       '- With no bishops, guilt is permanent until a pawn promotes to a bishop. Win by checkmate.',
       'Strategy notes: capturing with a valuable piece disarms it until a bishop reaches it, so think about which piece captures; enemy guilty pieces are harmless attackers; keep your bishops.',
       '',
@@ -1816,6 +1774,10 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       if (cands.length > 1) { showPromo(cands); return; }
       if (cands.length === 1) { commit(cands[0]); return; }
     }
+    if (S.selected >= 0 && p && E.typeOf(p) === E.ROOK && E.colorOf(p) === pos.turn && E.typeOf(pos.board[S.selected]) === E.KING) {
+      const castle = legalFromSelected().find((m) => (mFlags(m) & E.F_CASTLE) && (mTo(m) > S.selected) === (sq > S.selected));
+      if (castle !== undefined) { commit(castle); return; }
+    }
     if (p && E.colorOf(p) === pos.turn && sq !== S.selected) S.selected = sq;
     else S.selected = -1;
     S.hint = null;
@@ -1833,7 +1795,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', 'Promote to ' + E.NAMES[t]);
-      b.innerHTML = `<span class="${color}">${GLYPH[t]}${VS}</span>`;
+      b.innerHTML = Pieces.svg(t, color === 'w' ? 0 : 1);
       b.addEventListener('click', (e) => { e.stopPropagation(); closePromo(); commit(m); });
       row.appendChild(b);
     }
@@ -1881,7 +1843,10 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
     if (m === undefined || m === null) return;
     S.hint = { from: mFrom(m), to: mTo(m) };
     render(false);
-    $('status-text').textContent = 'Hint: ' + S.game.pos.toSAN(m) + (mFlags(m) & F_ABSOLVE ? ' (absolve in place)' : '');
+    const hp = S.game.pos;
+    $('status-text').textContent = mFlags(m) & F_ABSOLVE
+      ? `Hint: select the bishop on ${E.sqName(mFrom(m))} and absolve ${mTo(m) === mFrom(m) ? 'it' : 'the ' + E.NAMES[E.typeOf(hp.board[mTo(m)])] + ' on ' + E.sqName(mTo(m))}`
+      : 'Hint: ' + hp.toSAN(m);
   }
 
   function newGame(settings) {
@@ -1924,8 +1889,10 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       const b = e.target.closest('.sq');
       if (b) onSquare(+b.dataset.sq);
     });
-    $('btn-absolve').addEventListener('click', () => {
-      const m = legalFromSelected().find((x) => mFlags(x) & F_ABSOLVE);
+    $('absolve-bar').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-uci]');
+      if (!btn || !isHumanTurn() || S.thinking) return;
+      const m = S.game.findMove(btn.dataset.uci);
       if (m !== undefined) commit(m);
     });
     $('btn-undo').addEventListener('click', undo);
@@ -1957,7 +1924,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
       label.textContent = 'Uses your Claude account';
       input.disabled = false;
     } else {
-      label.textContent = 'Only when opened in Claude';
+      label.textContent = 'Claude.ai version only';
       input.disabled = true;
       if (S.settings.opponent === 'claude' && !isHumanTurn()) S.claudeNote = '';
     }
@@ -1987,6 +1954,7 @@ button:focus-visible, input:focus-visible + span { outline: 2px solid var(--cand
     window.__remorse = {
       state: () => ({ fen: S.game.pos.fen(), turn: S.game.pos.turn, status: S.game.status(), history: S.game.history.map((h) => h.san), thinking: S.thinking, human: isHumanTurn(), settings: S.settings }),
       legal: () => S.game.legalMoves().map(uci),
+      absolves: () => S.game.legalMoves().filter((m) => mFlags(m) & F_ABSOLVE).map(uci),
       newGame: (opponent, side) => newGame({ opponent, side, chosenSide: side }),
     };
   }

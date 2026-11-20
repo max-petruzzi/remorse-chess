@@ -3,10 +3,9 @@
   'use strict';
   const E = window.RemorseEngine;
   const AI = window.RemorseAI;
+  const Pieces = window.RemorsePieces;
   const { Game, uci, mFrom, mTo, mPromo, mFlags, F_ABSOLVE, WHITE, BLACK } = E;
 
-  const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
-  const VS = '︎'; // force text presentation (no emoji pawns on iOS)
   const OPP_NAMES = { easy: 'Novice', medium: 'Deacon', hard: 'Bishop', claude: 'Claude', human: 'Player 2' };
   const STORE_KEY = 'remorse-chess-v1';
 
@@ -150,24 +149,20 @@
     const pos = S.game.pos;
     const status = S.game.status();
     const legalSel = legalFromSelected();
-    const targets = new Map(); // sq -> 'move' | 'capture' | 'absolve'
+    const targets = new Map(); // sq -> 'move' | 'capture' | 'castle' | 'absolve'
     for (const m of legalSel) {
-      if (mFlags(m) & F_ABSOLVE) continue;
-      const to = mTo(m);
-      let kind = pos.isCapture(m) ? 'capture' : 'move';
-      if (kind === 'move' && E.typeOf(pos.board[mFrom(m)]) === E.BISHOP && !E.isGuilty(pos.board[mFrom(m)])) {
-        if (pos.absolvesBy(m).length) kind = 'absolve';
-      }
-      targets.set(to, kind);
+      const fl = mFlags(m);
+      if (fl & F_ABSOLVE) { if (mTo(m) !== mFrom(m)) targets.set(mTo(m), 'absolve'); continue; }
+      targets.set(mTo(m), pos.isCapture(m) ? 'capture' : (fl & E.F_CASTLE) ? 'castle' : 'move');
     }
     const last = S.lastEntry;
     const checkSq = status.inCheck || (status.over && status.reason === 'checkmate') ? pos.kingSquare(pos.turn) : -1;
     const justGuilty = anim && last ? last.info.becameGuilty : -1;
-    const justAbsolved = anim && last ? new Set(last.info.absolved.concat(last.info.cleansed)) : new Set();
+    const justAbsolved = anim && last ? new Set(last.info.absolved) : new Set();
 
     for (let sq = 0; sq < 64; sq++) {
       const el = squareEl(sq);
-      el.querySelectorAll('.piece,.dot,.ring').forEach((n) => n.remove());
+      el.querySelectorAll('.piece,.dot,.ring,.halo').forEach((n) => n.remove());
       el.classList.toggle('sel', sq === S.selected);
       el.classList.toggle('last', !!last && (sq === mFrom(last.move) || sq === mTo(last.move)) && sq !== S.selected);
       el.classList.toggle('check', sq === checkSq);
@@ -178,19 +173,18 @@
         const piece = document.createElement('span');
         piece.className = 'piece ' + (c === WHITE ? 'w' : 'b');
         if (guilty) piece.classList.add('guilty');
-        if (guilty && t === E.BISHOP) piece.classList.add('cleansing');
         if (sq === justGuilty) piece.classList.add('just-guilty');
         if (justAbsolved.has(sq)) piece.classList.add('just-absolved');
-        piece.innerHTML = (guilty ? '<span class="token"></span>' : '') + `<span class="g">${GLYPH[t]}${VS}</span>`;
+        piece.innerHTML = (guilty ? '<span class="token"></span>' : '') + Pieces.svg(t, c);
         el.appendChild(piece);
         label += ` ${colorName(c)} ${E.NAMES[t]}${guilty ? ', guilt-ridden' : ''}`;
       }
       const tk = targets.get(sq);
       if (tk) {
         const mark = document.createElement('span');
-        mark.className = tk === 'capture' ? 'ring' : 'dot' + (tk === 'absolve' ? ' absolve' : '');
+        mark.className = tk === 'capture' ? 'ring' : tk === 'absolve' ? 'halo' : 'dot' + (tk === 'castle' ? ' castle' : '');
         el.appendChild(mark);
-        label += tk === 'absolve' ? ', move here to absolve' : tk === 'capture' ? ', capture' : ', move here';
+        label += tk === 'absolve' ? ', can be absolved' : tk === 'capture' ? ', capture' : tk === 'castle' ? ', castle here' : ', move here';
       }
       el.classList.toggle('hint', !!S.hint && (sq === S.hint.from || sq === S.hint.to));
       el.setAttribute('aria-label', label);
@@ -210,9 +204,22 @@
       }
     }
 
-    // Absolve-in-place bar
-    const absolveMove = legalSel.find((m) => mFlags(m) & F_ABSOLVE);
-    $('absolve-bar').hidden = absolveMove === undefined || !isHumanTurn() || S.thinking;
+    // Absolution buttons: absolving is an action that uses the turn.
+    const absolves = isHumanTurn() && !S.thinking && !status.over ? legalSel.filter((m) => mFlags(m) & F_ABSOLVE) : [];
+    const bar = $('absolve-bar');
+    bar.innerHTML = '';
+    for (const m of absolves) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-gold';
+      btn.dataset.uci = uci(m);
+      const self = mTo(m) === mFrom(m);
+      btn.textContent = self ? 'Absolve this bishop' : `Absolve ${E.NAMES[E.typeOf(pos.board[mTo(m)])]} ${E.sqName(mTo(m))}`;
+      bar.appendChild(btn);
+    }
+    if (absolves.length) bar.insertAdjacentHTML('beforeend', '<span class="hint">Uses your turn</span>');
+    bar.hidden = absolves.length === 0;
+    $('moves-strip').hidden = absolves.length > 0;
 
     renderBars(status);
     renderStatus(status);
@@ -245,7 +252,7 @@
         : '';
       const order = [5, 4, 3, 2, 1];
       const list = caps[color].slice().sort((a, b) => order.indexOf(E.typeOf(a)) - order.indexOf(E.typeOf(b)));
-      $('cap-' + slot).textContent = list.map((p) => GLYPH[E.typeOf(p)] + VS).join('');
+      $('cap-' + slot).innerHTML = list.map((p) => Pieces.svg(E.typeOf(p), E.colorOf(p))).join('');
     }
   }
 
@@ -267,15 +274,11 @@
       if (status.inCheck) el.classList.add('alert');
       if (S.settings.opponent === 'human') text = `${who} to move${status.inCheck ? ', in check' : ''}`;
       else text = isHumanTurn() ? (status.inCheck ? 'You are in check' : 'Your move') : `${who} to move`;
-      const cl = S.lastEntry && S.lastEntry.info.cleansed;
-      if (cl && cl.length) {
-        text += `. ${colorName(pos.turn ^ 1)}'s bishop on ${cl.map(E.sqName).join(' and ')} cleansed itself and can capture again`;
-      }
       const sel = S.selected >= 0 ? pos.board[S.selected] : 0;
       if (sel && E.isGuilty(sel) && isHumanTurn()) {
-        text += E.typeOf(sel) === E.BISHOP
-          ? '. This bishop is cleansing itself and cannot capture this turn.'
-          : '. This piece is guilt-ridden and cannot capture.';
+        text = E.typeOf(sel) === E.BISHOP
+          ? 'Guilt-ridden bishop: it can move, or spend a turn absolving itself.'
+          : `Guilt-ridden ${E.NAMES[E.typeOf(sel)]}: it can move but not capture.`;
       }
     }
     $('status-text').textContent = text;
@@ -301,7 +304,7 @@
       items.push(`<li><span class="num">${num}.</span>${fmt(h[i], i)}${fmt(h[i + 1], i + 1)}</li>`);
     }
     ol.innerHTML = items.join('');
-    ol.scrollTop = ol.scrollHeight;
+    ol.scrollLeft = ol.scrollWidth;
   }
 
   /* ---------- game flow ---------- */
@@ -380,14 +383,14 @@
   function describeMove(pos, m, legal) {
     const san = pos.toSAN(m, legal);
     const notes = [];
-    if (mFlags(m) & F_ABSOLVE) notes.push('bishop stays put and absolves neighbours');
-    else {
+    if (mFlags(m) & F_ABSOLVE) {
+      notes.push(mTo(m) === mFrom(m) ? 'bishop spends the turn absolving itself'
+        : 'bishop spends the turn absolving your ' + E.NAMES[E.typeOf(pos.board[mTo(m)])] + ' on ' + E.sqName(mTo(m)));
+    } else {
       if (pos.isCapture(m)) {
         const capSq = (mFlags(m) & E.F_EP) ? (pos.turn === WHITE ? mTo(m) - 8 : mTo(m) + 8) : mTo(m);
         notes.push('captures ' + E.NAMES[E.typeOf(pos.board[capSq])] + ', your piece becomes guilt-ridden');
       }
-      const abs = pos.absolvesBy(m);
-      if (abs.length) notes.push('absolves ' + abs.map((s) => E.NAMES[E.typeOf(pos.board[s])] + ' ' + E.sqName(s)).join(', '));
       if (mPromo(m)) notes.push('promotes');
     }
     return `${uci(m)} = ${san}${notes.length ? ' (' + notes.join('; ') + ')' : ''}`;
@@ -429,8 +432,8 @@
       '',
       'Rules: normal chess, except pieces feel guilt.',
       '- A piece that captures becomes guilt-ridden (marked *). Guilt-ridden pieces cannot capture, and so they do not give check, but they move normally.',
-      '- A non-guilty bishop that ends its move on a square touching (8 neighbours) guilt-ridden friendly pieces absolves them. A bishop already touching one may absolve in place (move written like f4f4).',
-      '- A bishop that captures is guilty through its owner\'s next turn, then cleanses itself.',
+      '- Absolution is an action that uses a whole turn: a non-guilty bishop standing next to (8 neighbours) a guilt-ridden friendly piece may absolve that one piece instead of moving. Moving a bishop next to a guilty piece does nothing by itself.',
+      '- A bishop that captures is guilt-ridden too; it cannot absolve others, but it may spend a turn absolving itself.',
       '- With no bishops, guilt is permanent until a pawn promotes to a bishop. Win by checkmate.',
       'Strategy notes: capturing with a valuable piece disarms it until a bishop reaches it, so think about which piece captures; enemy guilty pieces are harmless attackers; keep your bishops.',
       '',
@@ -485,6 +488,10 @@
       if (cands.length > 1) { showPromo(cands); return; }
       if (cands.length === 1) { commit(cands[0]); return; }
     }
+    if (S.selected >= 0 && p && E.typeOf(p) === E.ROOK && E.colorOf(p) === pos.turn && E.typeOf(pos.board[S.selected]) === E.KING) {
+      const castle = legalFromSelected().find((m) => (mFlags(m) & E.F_CASTLE) && (mTo(m) > S.selected) === (sq > S.selected));
+      if (castle !== undefined) { commit(castle); return; }
+    }
     if (p && E.colorOf(p) === pos.turn && sq !== S.selected) S.selected = sq;
     else S.selected = -1;
     S.hint = null;
@@ -502,7 +509,7 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', 'Promote to ' + E.NAMES[t]);
-      b.innerHTML = `<span class="${color}">${GLYPH[t]}${VS}</span>`;
+      b.innerHTML = Pieces.svg(t, color === 'w' ? 0 : 1);
       b.addEventListener('click', (e) => { e.stopPropagation(); closePromo(); commit(m); });
       row.appendChild(b);
     }
@@ -550,7 +557,10 @@
     if (m === undefined || m === null) return;
     S.hint = { from: mFrom(m), to: mTo(m) };
     render(false);
-    $('status-text').textContent = 'Hint: ' + S.game.pos.toSAN(m) + (mFlags(m) & F_ABSOLVE ? ' (absolve in place)' : '');
+    const hp = S.game.pos;
+    $('status-text').textContent = mFlags(m) & F_ABSOLVE
+      ? `Hint: select the bishop on ${E.sqName(mFrom(m))} and absolve ${mTo(m) === mFrom(m) ? 'it' : 'the ' + E.NAMES[E.typeOf(hp.board[mTo(m)])] + ' on ' + E.sqName(mTo(m))}`
+      : 'Hint: ' + hp.toSAN(m);
   }
 
   function newGame(settings) {
@@ -593,8 +603,10 @@
       const b = e.target.closest('.sq');
       if (b) onSquare(+b.dataset.sq);
     });
-    $('btn-absolve').addEventListener('click', () => {
-      const m = legalFromSelected().find((x) => mFlags(x) & F_ABSOLVE);
+    $('absolve-bar').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-uci]');
+      if (!btn || !isHumanTurn() || S.thinking) return;
+      const m = S.game.findMove(btn.dataset.uci);
       if (m !== undefined) commit(m);
     });
     $('btn-undo').addEventListener('click', undo);
@@ -626,7 +638,7 @@
       label.textContent = 'Uses your Claude account';
       input.disabled = false;
     } else {
-      label.textContent = 'Only when opened in Claude';
+      label.textContent = 'Claude.ai version only';
       input.disabled = true;
       if (S.settings.opponent === 'claude' && !isHumanTurn()) S.claudeNote = '';
     }
@@ -656,6 +668,7 @@
     window.__remorse = {
       state: () => ({ fen: S.game.pos.fen(), turn: S.game.pos.turn, status: S.game.status(), history: S.game.history.map((h) => h.san), thinking: S.thinking, human: isHumanTurn(), settings: S.settings }),
       legal: () => S.game.legalMoves().map(uci),
+      absolves: () => S.game.legalMoves().filter((m) => mFlags(m) & F_ABSOLVE).map(uci),
       newGame: (opponent, side) => newGame({ opponent, side, chosenSide: side }),
     };
   }

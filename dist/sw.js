@@ -1,5 +1,5 @@
 // Remorse Chess service worker: cache-first app shell, network for fonts with cache fallback.
-const CACHE = 'remorse-537bcee74c';
+const CACHE = 'remorse-67ac0a5bea';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

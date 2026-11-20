@@ -104,11 +104,11 @@
       let v = VALUE[t] + (t === KING && endgame ? KING_END[idx] : PST[t][idx]);
       if (p & GUILT) {
         if (t === KING) v -= 40;
-        else if (t === BISHOP) v -= 15; // cleanses itself next turn
+        else if (t === BISHOP) v -= 55; // costs a turn to absolve itself
         else {
           // A guilty piece is a pacifist until a bishop gets to it.
           const redeemable = innocentBishops[c] > 0 || bishops[c] > 0;
-          const factor = redeemable ? (t === PAWN ? 0.15 : 0.18) : (t === PAWN ? 0.3 : 0.4);
+          const factor = redeemable ? (t === PAWN ? 0.15 : 0.22) : (t === PAWN ? 0.3 : 0.4);
           v -= VALUE[t] * factor;
         }
       }

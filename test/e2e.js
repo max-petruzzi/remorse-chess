@@ -46,12 +46,13 @@ function fenGuilt(fen) {
   return out.sort((a, b) => a - b);
 }
 
-async function tapMove(page, u) {
+async function tapMove(page, u, absolve) {
   const sq = (n) => (n.charCodeAt(1) - 49) * 8 + (n.charCodeAt(0) - 97);
   const from = sq(u.slice(0, 2)), to = sq(u.slice(2, 4));
   await page.click(`[data-sq="${from}"]`);
-  if (from === to) {
-    await page.click('#btn-absolve');
+  if (absolve) {
+    // Absolving is a button press that uses the turn.
+    await page.click(`#absolve-bar button[data-uci="${u}"]`);
     return;
   }
   await page.click(`[data-sq="${to}"]`);
@@ -74,11 +75,13 @@ async function playGame(page, opts, rand) {
     if (st.status.over) return { st, plies, sawGuilt, sawAbsolve };
     if (plies >= opts.maxPlies) return { st, plies, sawGuilt, sawAbsolve, cut: true };
     const legal = await page.evaluate(() => window.__remorse.legal());
-    // Prefer captures and absolutions so the variant rules get exercised.
-    const absolves = legal.filter((u) => u.slice(0, 2) === u.slice(2, 4));
-    const pick = absolves.length && rand() < 0.7 ? absolves[0] : legal[Math.floor(rand() * legal.length)];
+    // Prefer absolutions when available so the variant rules get exercised.
+    const absolves = await page.evaluate(() => window.__remorse.absolves());
+    const useAbsolve = absolves.length > 0 && rand() < 0.5;
+    const pick = useAbsolve ? absolves[Math.floor(rand() * absolves.length)] : legal[Math.floor(rand() * legal.length)];
+    const isAbsolve = absolves.includes(pick);
     const before = st.history.length;
-    await tapMove(page, pick);
+    await tapMove(page, pick, isAbsolve);
     await page.waitForFunction((n) => window.__remorse.state().history.length > n, before, { timeout: 5000 });
     plies++;
   }
@@ -94,6 +97,9 @@ async function playGame(page, opts, rand) {
   await page.goto(URL);
   await page.waitForFunction(() => window.__remorse);
   if (await page.isVisible('#btn-rules-close')) await page.click('#btn-rules-close');
+
+  const scroll = await page.evaluate(() => ({ sh: document.documentElement.scrollHeight, ih: window.innerHeight, sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
+  assert.ok(scroll.sh <= scroll.ih + 1 && scroll.sw <= scroll.iw, 'the game fits one screen with no page scrolling: ' + JSON.stringify(scroll));
 
   const rand = rng(7);
   const configs = [
@@ -113,7 +119,7 @@ async function playGame(page, opts, rand) {
       await page.click('#btn-over-review');
     }
     console.log(`game ${i + 1} vs ${cfg.opponent} as ${cfg.side}: ${r.st.status.over ? r.st.status.reason + ' ' + r.st.status.result : 'stopped'} ` +
-      `after ${r.st.history.length} plies, guilt seen: ${r.sawGuilt}, absolve-in-place used: ${r.sawAbsolve}, ${Math.round((Date.now() - t) / 1000)}s`);
+      `after ${r.st.history.length} plies, guilt seen: ${r.sawGuilt}, absolve button used: ${r.sawAbsolve}, ${Math.round((Date.now() - t) / 1000)}s`);
   }
 
   // Undo returns to the human's turn and restores the position.
@@ -153,6 +159,14 @@ async function playGame(page, opts, rand) {
   await page.click('#btn-undo');
   await page.waitForTimeout(900);
   assert.ok(!(await page.isVisible('#sheet-over')), 'no game-over sheet after undoing mate');
+
+  // Castling: tap the king, then the rook (or the marked square).
+  await page.evaluate(() => window.__remorse.newGame('human', 'w'));
+  for (const u of ['e2e4', 'e7e5', 'g1f3', 'g8f6', 'f1c4', 'f8c5']) await tapMove(page, u);
+  await page.click('[data-sq="4"]'); await page.click('[data-sq="7"]');
+  await tapMove(page, 'e8g8');
+  const castled = await page.evaluate(() => window.__remorse.state().history.slice(-2));
+  assert.deepStrictEqual(castled, ['O-O', 'O-O'], 'both ways of castling work');
 
   assert.ok(guiltSeen, 'guilt tokens appeared during play');
   assert.deepStrictEqual(errors, [], 'no console errors');

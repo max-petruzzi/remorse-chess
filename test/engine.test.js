@@ -99,62 +99,66 @@ test('a guilty king cannot capture an undefended attacker', () => {
   assert.ok(has('4k3/8/8/8/8/8/4q3/4K3 w - - 0 1', 'e1e2'));
 });
 
-test('moving a bishop next to a guilty piece absolves it', () => {
-  // White guilty knight on d4, white bishop on f1 moves to e3 (adjacent to d4).
-  const g = playAll('4k3/8/8/8/3N*4/8/8/4KB2 w - - 0 1', ['f1e2']);
-  // e2 is not adjacent to d4 (distance 2 ranks), so still guilty.
-  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('d4')]));
-  const g2 = playAll('4k3/8/8/8/3N*4/8/8/2B1K3 w - - 0 1', ['c1e3']);
-  assert.ok(!E.isGuilty(g2.pos.board[E.sqFromName('d4')]));
-  assert.deepEqual(g2.history[0].info.absolved, [E.sqFromName('d4')]);
+test('moving a bishop next to a guilty piece does not absolve by itself', () => {
+  const g = playAll('4k3/8/8/8/3N*4/8/8/2B1K3 w - - 0 1', ['c1e3']);
+  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('d4')]), 'still guilty after the bishop arrives');
+  assert.deepEqual(g.history[0].info.absolved, []);
 });
 
-test('absolution covers every adjacent guilty friendly piece and never the enemy', () => {
-  const g = playAll('4k3/8/8/2N*1n*3/8/8/8/2B1K3 w - - 0 1', ['c1e3']);
-  // e3 is not adjacent to c5 or e5 (two ranks away), so nothing happens.
-  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('c5')]));
-  const g2 = playAll('4k3/8/8/2N*1N*3/8/8/8/1B2K3 w - - 0 1', ['b1d3']);
-  void g2; // d3 not adjacent to rank 5 either
-  const g3 = playAll('4k3/8/8/2N*1n*3/8/8/8/4K1B1 w - - 0 1', ['g1d4']);
-  assert.ok(!E.isGuilty(g3.pos.board[E.sqFromName('c5')]), 'own knight absolved');
-  assert.ok(E.isGuilty(g3.pos.board[E.sqFromName('e5')]), 'enemy knight stays guilty');
-});
-
-test('a bishop already adjacent can spend its turn absolving in place', () => {
+test('a bishop next to a guilty friend can spend a turn absolving it', () => {
   const fen = '4k3/8/8/8/3N*4/2B5/8/4K3 w - - 0 1';
-  assert.ok(has(fen, 'c3c3'));
-  const g = playAll(fen, ['c3c3']);
+  assert.ok(has(fen, 'c3d4'));
+  const g = playAll(fen, ['c3d4']);
   assert.ok(!E.isGuilty(g.pos.board[E.sqFromName('d4')]));
-  assert.equal(g.pos.turn, E.BLACK);
-  assert.equal(g.history[0].san, 'Bc3~');
-  // Not offered when there is no one to absolve.
-  assert.ok(!has('4k3/8/8/8/3N4/2B5/8/4K3 w - - 0 1', 'c3c3'));
+  assert.equal(E.typeOf(g.pos.board[E.sqFromName('c3')]), E.BISHOP, 'the bishop stays where it was');
+  assert.equal(E.typeOf(g.pos.board[E.sqFromName('d4')]), E.KNIGHT);
+  assert.equal(g.pos.turn, E.BLACK, 'absolving uses the turn');
+  assert.equal(g.history[0].san, 'Bc3~d4');
+  assert.deepEqual(g.history[0].info.absolved, [E.sqFromName('d4')]);
+  // Not offered when the neighbour is innocent, or not adjacent.
+  assert.ok(!has('4k3/8/8/8/3N4/2B5/8/4K3 w - - 0 1', 'c3d4'));
+  assert.ok(!moves('4k3/8/8/3N*4/8/2B5/8/4K3 w - - 0 1').includes('c3d5'));
 });
 
-test('a bishop that captures is guilty for one turn, then cleanses itself', () => {
-  // White bishop c1 takes h6; black replies; white's next move ends the guilt.
-  const g = playAll('4k3/8/7p/8/8/8/P7/2B1K3 w - - 0 1', ['c1h6']);
+test('one absolution forgives one piece, and never an enemy piece', () => {
+  // Bishop d4 touches guilty white knights on c5 and e5 and a guilty black knight on d5.
+  const fen = '4k3/8/8/2N*n*N*3/3B4/8/8/4K3 w - - 0 1';
+  const legal = moves(fen);
+  assert.ok(legal.includes('d4c5') && legal.includes('d4e5'));
+  assert.ok(!legal.includes('d4d5'), 'cannot absolve (or capture) the enemy knight this way... it is a capture');
+  const g = playAll(fen, ['d4c5']);
+  assert.ok(!E.isGuilty(g.pos.board[E.sqFromName('c5')]));
+  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('e5')]), 'the other knight needs its own turn');
+  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('d5')]));
+});
+
+test('a bishop that captures is guilty until it spends a turn absolving itself', () => {
+  const g = playAll('4k3/6p1/7p/8/8/8/P7/2B1K3 w - - 0 1', ['c1h6', 'e8d7']);
   const h6 = E.sqFromName('h6');
   assert.ok(E.isGuilty(g.pos.board[h6]));
-  g.play(g.findMove('e8d7'));
-  assert.ok(E.isGuilty(g.pos.board[h6]), 'still guilty during the opponent turn');
-  // On its owner's next turn it still cannot capture...
-  const g2 = playAll('4k3/6p1/7p/8/8/8/P7/2B1K3 w - - 0 1', ['c1h6', 'e8d7']);
-  assert.ok(!g2.legalMoves().map(uci).includes('h6g7'), 'guilty bishop cannot capture on the next turn');
-  // ...and when that turn ends it is clean again.
+  let legal = g.legalMoves().map(uci);
+  assert.ok(!legal.includes('h6g7'), 'guilty bishop cannot capture');
+  assert.ok(legal.includes('h6h6'), 'it can absolve itself');
   g.play(g.findMove('a2a3'));
+  g.play(g.findMove('d7d6'));
+  assert.ok(E.isGuilty(g.pos.board[h6]), 'guilt does not wear off on its own');
+  g.play(g.findMove('h6h6'));
   assert.ok(!E.isGuilty(g.pos.board[h6]));
-  assert.deepEqual(g.history[2].info.cleansed, [h6]);
+  assert.equal(g.history[4].san, 'Bh6~');
+  g.play(g.findMove('d6d5'));
+  assert.ok(g.legalMoves().map(uci).includes('h6g7'), 'clean again, so it can capture');
 });
 
-test('a self-cleansing bishop that moves is cleansed on its new square, but cannot absolve', () => {
-  // Guilty knight on g3; the bishop takes h6, then returns to f4 (next to g3).
-  const g = playAll('4k3/8/7p/8/8/4B1N*1/8/4K3 w - - 0 1', ['e3h6', 'e8d8', 'h6f4']);
-  assert.ok(!E.isGuilty(g.pos.board[E.sqFromName('f4')]), 'bishop cleansed on its new square');
-  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('g3')]), 'a guilty bishop cannot absolve on the turn it cleanses itself');
-  // One turn later, it is clean and can absolve in place.
-  g.play(g.findMove('d8e8'));
-  assert.ok(g.legalMoves().map(uci).includes('f4f4'));
+test('a guilty bishop cannot absolve others', () => {
+  const fen = '4k3/8/8/8/3N*4/2B*5/8/4K3 w - - 0 1';
+  const legal = moves(fen);
+  assert.ok(!legal.includes('c3d4'));
+  assert.ok(legal.includes('c3c3'));
+});
+
+test('absolving is not allowed while it leaves the king in check', () => {
+  const fen = '4k3/8/8/8/3N*4/2B5/8/r3K3 w - - 0 1';
+  assert.ok(!has(fen, 'c3d4'));
 });
 
 test('promotion carries guilt; a pawn promoting with a capture becomes guilty', () => {
@@ -165,11 +169,13 @@ test('promotion carries guilt; a pawn promoting with a capture becomes guilty', 
 });
 
 test('with no bishops, guilt stays until a pawn promotes to a bishop', () => {
-  // White: guilty knight on b7, pawn on a7 about to promote to a8 (adjacent to b7).
-  const g = playAll('4k3/PN*6/8/8/8/8/8/4K3 w - - 0 1', ['a7a8b']);
-  const a8 = E.sqFromName('a8');
-  assert.equal(E.typeOf(g.pos.board[a8]), E.BISHOP);
-  assert.ok(!E.isGuilty(g.pos.board[E.sqFromName('b7')]), 'newly promoted bishop absolves on arrival');
+  const start = '4k3/PN*6/8/8/8/8/8/4K3 w - - 0 1';
+  assert.ok(!moves(start).some((u) => u.endsWith('b7') && u !== 'a7b7'), 'nobody can absolve the knight yet');
+  const g = playAll(start, ['a7a8b', 'e8d7']);
+  assert.ok(E.isGuilty(g.pos.board[E.sqFromName('b7')]), 'promotion alone does not absolve');
+  assert.ok(g.legalMoves().map(uci).includes('a8b7'), 'the new bishop can absolve next turn');
+  g.play(g.findMove('a8b7'));
+  assert.ok(!E.isGuilty(g.pos.board[E.sqFromName('b7')]));
 });
 
 test('discovered check from an innocent piece still counts', () => {
@@ -231,6 +237,7 @@ test('random self-play keeps invariants (kings present, make/unmake symmetric)',
       const m = legal[Math.floor(rnd() * legal.length)];
       const e = g.play(m);
       if (e.info.absolved.length) absolutions++;
+      assert.equal(e.info.absolved.length > 0, (E.mFlags(m) & E.F_ABSOLVE) !== 0);
       if (e.info.captured) guiltyCaptures++;
       assert.ok(g.pos.kingSquare(E.WHITE) >= 0 && g.pos.kingSquare(E.BLACK) >= 0);
       assert.ok(!g.pos.inCheck(g.pos.turn ^ 1), 'side that just moved is never left in check');

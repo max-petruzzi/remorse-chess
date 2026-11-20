@@ -1,93 +1,92 @@
 <div class="app" id="app">
   <header class="top">
-    <div class="brand">
-      <h1>Remorse Chess</h1>
-      <p class="tagline">Every capture leaves a mark.</p>
-    </div>
+    <h1>Remorse Chess</h1>
     <div class="top-actions">
-      <button class="icon-btn" id="btn-rules" type="button" aria-label="Rules">Rules</button>
-      <button class="icon-btn" id="btn-settings" type="button" aria-label="New game and settings">New</button>
+      <button class="pill" id="btn-rules" type="button">Rules</button>
+      <button class="pill" id="btn-settings" type="button">New game</button>
     </div>
   </header>
 
-  <main class="stage">
-    <section class="board-col">
-      <div class="player-bar" id="bar-top">
-        <span class="who" id="name-top">Bot</span>
-        <span class="tokens" id="tokens-top"></span>
-        <span class="captured" id="cap-top"></span>
-      </div>
+  <div class="player-bar" id="bar-top">
+    <span class="who" id="name-top">Deacon</span>
+    <span class="tokens" id="tokens-top"></span>
+    <span class="captured" id="cap-top"></span>
+  </div>
 
-      <div class="board-wrap">
-        <div class="board" id="board" role="grid" aria-label="Chess board"></div>
-        <div class="promo" id="promo" hidden>
-          <p>Promote to</p>
-          <div class="promo-row" id="promo-row"></div>
-        </div>
+  <div class="board-area">
+    <div class="board-box">
+      <div class="board" id="board" role="grid" aria-label="Chess board"></div>
+      <div class="promo" id="promo" hidden>
+        <p>Promote to</p>
+        <div class="promo-row" id="promo-row"></div>
+        <p class="promo-cancel">Tap outside to cancel</p>
       </div>
+    </div>
+  </div>
 
-      <div class="player-bar" id="bar-bottom">
-        <span class="who" id="name-bottom">You</span>
-        <span class="tokens" id="tokens-bottom"></span>
-        <span class="captured" id="cap-bottom"></span>
-      </div>
-    </section>
+  <div class="player-bar" id="bar-bottom">
+    <span class="who" id="name-bottom">You</span>
+    <span class="tokens" id="tokens-bottom"></span>
+    <span class="captured" id="cap-bottom"></span>
+  </div>
 
-    <section class="side-col">
-      <div class="status" id="status" aria-live="polite">
-        <span class="status-dot" id="status-dot"></span>
-        <span id="status-text">Your move</span>
-      </div>
+  <div class="status" id="status" aria-live="polite">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Your move</span>
+  </div>
 
-      <div class="absolve-bar" id="absolve-bar" hidden>
-        <button class="btn btn-gold" id="btn-absolve" type="button">Absolve in place</button>
-        <span class="hint">Spend this turn forgiving the pieces next to this bishop.</span>
-      </div>
+  <div class="claude-note" id="claude-note" hidden>
+    <span class="claude-name">Claude</span>
+    <span id="claude-text"></span>
+    <button class="link-btn" id="btn-claude-skip" type="button" hidden>Skip</button>
+  </div>
 
-      <div class="claude-note" id="claude-note" hidden>
-        <div class="claude-head">
-          <span class="claude-name">Claude</span>
-          <button class="link-btn" id="btn-claude-skip" type="button" hidden>Let the bot move instead</button>
-        </div>
-        <p id="claude-text"></p>
-      </div>
+  <div class="dock">
+    <div class="absolve-bar" id="absolve-bar" hidden></div>
+    <div class="moves-strip" id="moves-strip">
+      <ol class="moves" id="moves" aria-label="Moves played"></ol>
+    </div>
+  </div>
 
-      <div class="controls">
-        <button class="btn" id="btn-undo" type="button">Undo</button>
-        <button class="btn" id="btn-flip" type="button">Flip board</button>
-        <button class="btn" id="btn-hint" type="button">Hint</button>
-      </div>
-
-      <div class="moves-box">
-        <h2>Moves</h2>
-        <ol class="moves" id="moves"></ol>
-        <p class="legend"><span class="lg-cap"></span> capture, piece now guilt-ridden <span class="lg-abs">✦</span> absolution</p>
-      </div>
-    </section>
-  </main>
+  <nav class="tools" aria-label="Game controls">
+    <button class="tool" id="btn-undo" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-1" transform="translate(0 -5)"/></svg>
+      <span>Undo</span>
+    </button>
+    <button class="tool" id="btn-hint" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1.2 1.5 1.3 2.5h5.4c.1-1 .5-1.7 1.3-2.5A6 6 0 0 0 12 3z"/></svg>
+      <span>Hint</span>
+    </button>
+    <button class="tool" id="btn-flip" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4L3.5 7.5M7 4l3.5 3.5M17 20V4M17 20l-3.5-3.5M17 20l3.5-3.5"/></svg>
+      <span>Flip</span>
+    </button>
+  </nav>
 </div>
 
 <div class="sheet-back" id="sheet-settings" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <h2 id="settings-title">New game</h2>
-    <fieldset>
-      <legend>Opponent</legend>
-      <div class="choice-grid" id="opp-choices">
-        <label><input type="radio" name="opp" value="easy" id="opp-easy"><span><b>Novice</b><small>Makes mistakes</small></span></label>
-        <label><input type="radio" name="opp" value="medium" id="opp-medium"><span><b>Deacon</b><small>Solid, quick</small></span></label>
-        <label><input type="radio" name="opp" value="hard" id="opp-hard"><span><b>Bishop</b><small>Strongest, looks ~3 moves deep</small></span></label>
-        <label id="opp-claude-label"><input type="radio" name="opp" value="claude" id="opp-claude"><span><b>Claude</b><small id="claude-avail">Checking…</small></span></label>
-        <label><input type="radio" name="opp" value="human" id="opp-human"><span><b>Pass &amp; play</b><small>Two people, one phone</small></span></label>
-      </div>
-    </fieldset>
-    <fieldset>
-      <legend>You play</legend>
-      <div class="seg" id="side-choices">
-        <label><input type="radio" name="side" value="w" id="side-w"><span>White</span></label>
-        <label><input type="radio" name="side" value="b" id="side-b"><span>Black</span></label>
-        <label><input type="radio" name="side" value="r" id="side-r"><span>Random</span></label>
-      </div>
-    </fieldset>
+    <div class="sheet-body">
+      <h2 id="settings-title">New game</h2>
+      <fieldset>
+        <legend>Opponent</legend>
+        <div class="choice-grid" id="opp-choices">
+          <label><input type="radio" name="opp" value="easy" id="opp-easy"><span><b>Novice</b><small>Makes mistakes</small></span></label>
+          <label><input type="radio" name="opp" value="medium" id="opp-medium"><span><b>Deacon</b><small>Solid and quick</small></span></label>
+          <label><input type="radio" name="opp" value="hard" id="opp-hard"><span><b>Bishop</b><small>Strongest bot</small></span></label>
+          <label id="opp-claude-label"><input type="radio" name="opp" value="claude" id="opp-claude"><span><b>Claude</b><small id="claude-avail">Checking…</small></span></label>
+          <label class="wide"><input type="radio" name="opp" value="human" id="opp-human"><span><b>Pass &amp; play</b><small>Two people, one phone</small></span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>You play</legend>
+        <div class="seg" id="side-choices">
+          <label><input type="radio" name="side" value="w" id="side-w"><span>White</span></label>
+          <label><input type="radio" name="side" value="b" id="side-b"><span>Black</span></label>
+          <label><input type="radio" name="side" value="r" id="side-r"><span>Random</span></label>
+        </div>
+      </fieldset>
+    </div>
     <div class="sheet-actions">
       <button class="btn" id="btn-settings-cancel" type="button">Cancel</button>
       <button class="btn btn-gold" id="btn-start" type="button">Start game</button>
@@ -97,27 +96,30 @@
 
 <div class="sheet-back" id="sheet-rules" hidden>
   <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
-    <h2 id="rules-title">How remorse works</h2>
-    <p>Normal chess rules, with one change: pieces feel guilt.</p>
-    <ol class="rule-list">
-      <li><b>Capturing makes a piece guilt-ridden.</b> It gets a red token underneath.</li>
-      <li><b>Guilt-ridden pieces are pacifists.</b> They move as usual but cannot capture. Because they cannot capture, they also do not give check. A king may step right next to a guilty queen.</li>
-      <li><b>Bishops absolve.</b> Move a bishop onto any square touching a guilty piece of your side, including diagonals, and that piece is forgiven. That uses your turn. Every guilty friend touching the bishop is forgiven at once. A bishop already standing next to a guilty piece can use the <i>Absolve in place</i> button instead of moving.</li>
-      <li><b>Bishops forgive themselves.</b> A bishop that captures is guilty through your next turn, so it cannot capture or absolve on that turn. When that turn ends it is clean again. A dashed gold ring marks a bishop that is cleansing itself.</li>
-      <li><b>No bishops, no forgiveness.</b> Once your bishops are gone, guilt is permanent until a pawn promotes to a bishop.</li>
-      <li><b>Checkmate wins.</b> Stalemate, threefold repetition, the 50-move rule and insufficient material are draws.</li>
-    </ol>
-    <p class="fine">The original rules leave a few details open. This game uses these readings: a promotion that captures produces a guilty piece; a guilty king cannot capture either; capturing en passant counts as a capture; a guilt-ridden pawn stays guilt-ridden when it promotes (a guilty new bishop cleanses itself after one turn). If no pawns or bishops remain and every piece but the kings is guilt-ridden, the game is drawn, since nothing can ever capture again.</p>
+    <div class="sheet-body">
+      <h2 id="rules-title">How remorse works</h2>
+      <p class="lede">Normal chess, except pieces feel guilt.</p>
+      <ul class="rule-list">
+        <li><span class="rule-ico tok-ico"></span><div><b>Capture, and feel guilty.</b> A piece that captures gets a red token.</div></li>
+        <li><span class="rule-ico no-ico"></span><div><b>Guilty pieces can't capture.</b> They still move, but they can't take anything or give check.</div></li>
+        <li><span class="rule-ico halo-ico"></span><div><b>Bishops absolve.</b> Stand a bishop next to a guilty piece of yours, select the bishop and press <i>Absolve</i>. It forgives one piece and uses your turn.</div></li>
+        <li><span class="rule-ico halo-ico"></span><div><b>Bishops feel guilt too.</b> A bishop that captures must spend a turn absolving itself before it can capture or absolve again.</div></li>
+        <li><span class="rule-ico mate-ico"></span><div><b>Checkmate wins.</b> Lose your bishops and guilt is permanent, unless a pawn promotes to a bishop.</div></li>
+      </ul>
+      <p class="fine">Castling: tap your king, then the marked square or the rook.</p>
+    </div>
     <div class="sheet-actions">
-      <button class="btn btn-gold" id="btn-rules-close" type="button">Got it</button>
+      <button class="btn btn-gold" id="btn-rules-close" type="button">Play</button>
     </div>
   </div>
 </div>
 
 <div class="sheet-back" id="sheet-over" hidden>
   <div class="sheet over" role="dialog" aria-modal="true" aria-labelledby="over-title">
-    <h2 id="over-title">Checkmate</h2>
-    <p id="over-text"></p>
+    <div class="sheet-body">
+      <h2 id="over-title">Checkmate</h2>
+      <p id="over-text"></p>
+    </div>
     <div class="sheet-actions">
       <button class="btn" id="btn-over-review" type="button">Review board</button>
       <button class="btn btn-gold" id="btn-over-new" type="button">New game</button>

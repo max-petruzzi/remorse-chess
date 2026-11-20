@@ -16,16 +16,18 @@ fs.mkdirSync(dist, { recursive: true });
 
 const engine = src('engine.js');
 const ai = src('ai.js');
+const pieces = src('pieces.js');
 const app = src('app.js');
 const css = src('styles.css');
 const body = src('body.html');
-const version = require('crypto').createHash('sha1').update(engine + ai + app + css + body).digest('hex').slice(0, 10);
+const version = require('crypto').createHash('sha1').update(engine + ai + pieces + app + css + body).digest('hex').slice(0, 10);
 
-const FONTS = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+Symbols+2&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap';
+const FONTS = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;1,400&display=swap';
 const TITLE = 'Remorse Chess';
 
 const scripts = `<script id="engine-src">${engine}</script>
 <script id="ai-src">${ai}</script>
+<script>${pieces}</script>
 <script>${app}</script>`;
 
 // ---- PWA page ----
@@ -36,7 +38,7 @@ const pwa = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${TITLE}</title>
 <meta name="description" content="Chess where every capture leaves a piece guilt-ridden until a bishop absolves it. Play against a bot on your phone.">
-<meta name="theme-color" content="#15121d">
+<meta name="theme-color" content="#121016">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,6 +51,7 @@ const pwa = `<!doctype html>
 <link rel="stylesheet" href="${FONTS}">
 <style>
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { height: 100dvh; }
 [hidden] { display: none !important; }
 ${css}</style>
 </head>
@@ -84,8 +87,8 @@ const manifest = {
   scope: './',
   display: 'standalone',
   orientation: 'portrait',
-  background_color: '#15121d',
-  theme_color: '#15121d',
+  background_color: '#121016',
+  theme_color: '#121016',
   icons: [
     { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
     { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },

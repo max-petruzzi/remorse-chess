@@ -4,18 +4,19 @@
  * Standard chess, plus guilt:
  *  - A piece that captures becomes guilt-ridden. A guilt-ridden piece cannot
  *    capture (so it also gives no check), but still moves normally.
- *  - A bishop that ends a non-capturing move next to friendly guilt-ridden
- *    pieces (any of the 8 neighbouring squares) absolves all of them.
- *    A bishop already standing next to one may spend its turn absolving
- *    in place instead of moving.
- *  - A bishop that captures becomes guilt-ridden too, but cleanses itself:
- *    it stays guilty through its owner's next turn and is absolved when
- *    that turn ends. A guilty bishop cannot absolve others.
+ *  - Absolution is an action that uses a whole turn. A non-guilty bishop
+ *    standing next to a guilt-ridden friendly piece (any of the 8 neighbouring
+ *    squares) may absolve that one piece instead of moving. Moving a bishop
+ *    next to a guilty piece does nothing by itself.
+ *  - A bishop that captures becomes guilt-ridden too. It cannot absolve others
+ *    while guilty, but it may spend a turn absolving itself.
  *  - With no bishops left, guilt stays until a pawn promotes to a bishop.
  *  - Win by checkmate.
  *
  * Board: Uint8Array(64), index = rank * 8 + file, rank 0 is White's back rank.
  * Piece byte: type (1-6) | colour (0 white / 8 black) | GUILT (16).
+ * An absolution is encoded as a move from the bishop's square to the absolved
+ * piece's square (to == from when a bishop absolves itself) with F_ABSOLVE.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -201,15 +202,6 @@
       return this.attacked(k, (side === undefined ? this.turn : side) ^ 1);
     }
 
-    /* Can the bishop on `sq` (colour side) absolve anyone adjacent? */
-    hasGuiltyNeighbour(sq, side) {
-      const b = this.board, kg = KING_T[sq];
-      for (let i = 0; i < kg.length; i++) {
-        const p = b[kg[i]];
-        if (p && isGuilty(p) && colorOf(p) === side) return true;
-      }
-      return false;
-    }
 
     pseudoMoves(out) {
       const b = this.board, side = this.turn;
@@ -267,8 +259,15 @@
               break;
             }
           }
-          if (t === BISHOP && !guilty && this.hasGuiltyNeighbour(s, side)) {
-            moves.push(encode(s, s, 0, F_ABSOLVE));
+          if (t === BISHOP) {
+            if (guilty) moves.push(encode(s, s, 0, F_ABSOLVE));
+            else {
+              const kg = KING_T[s];
+              for (let i = 0; i < kg.length; i++) {
+                const q = b[kg[i]];
+                if (q && isGuilty(q) && colorOf(q) === side) moves.push(encode(s, kg[i], 0, F_ABSOLVE));
+              }
+            }
           }
         }
       }
@@ -294,40 +293,21 @@
       }
     }
 
-    _absolveAround(sq, side, changes) {
-      const b = this.board, kg = KING_T[sq];
-      for (let i = 0; i < kg.length; i++) {
-        const n = kg[i], p = b[n];
-        if (p && isGuilty(p) && colorOf(p) === side) {
-          b[n] = p & ~GUILT;
-          if (changes) changes.push(n);
-        }
-      }
-    }
-
     /*
      * Apply a move. Returns an info object describing what happened
-     * (captured piece, squares absolved, squares self-cleansed).
+     * (captured piece, square absolved).
      */
     make(m, wantInfo) {
       const b = this.board;
       this.stack.push({ board: b.slice(), turn: this.turn, castling: this.castling, ep: this.ep, halfmove: this.halfmove, fullmove: this.fullmove });
       const side = this.turn;
       const from = mFrom(m), to = mTo(m), promo = mPromo(m), flags = mFlags(m);
-      const info = wantInfo ? { captured: 0, capturedSq: -1, absolved: [], cleansed: [], becameGuilty: -1 } : null;
-
-      // Bishops that were guilty when this turn began cleanse themselves at its end.
-      let cleanse = null;
-      for (let s = 0; s < 64; s++) {
-        const p = b[s];
-        if (p && (p & (TYPE_MASK | BLACK_BIT | GUILT)) === (BISHOP | (side === BLACK ? BLACK_BIT : 0) | GUILT)) {
-          (cleanse || (cleanse = [])).push(s);
-        }
-      }
+      const info = wantInfo ? { captured: 0, capturedSq: -1, absolved: [], becameGuilty: -1 } : null;
 
       let captured = 0, isPawnMove = false;
       if (flags & F_ABSOLVE) {
-        this._absolveAround(from, side, info && info.absolved);
+        b[to] &= ~GUILT;
+        if (info) info.absolved.push(to);
       } else {
         const p = b[from];
         isPawnMove = typeOf(p) === PAWN;
@@ -349,8 +329,6 @@
         if (captured) {
           b[to] |= GUILT;
           if (info) { info.captured = captured; info.capturedSq = capSq; info.becameGuilty = to; }
-        } else if (typeOf(b[to]) === BISHOP && !isGuilty(b[to])) {
-          this._absolveAround(to, side, info && info.absolved);
         }
         // Castling rights
         if (typeOf(p) === KING) this.castling &= side === WHITE ? ~3 : ~12;
@@ -358,16 +336,6 @@
         if (from === 7 || to === 7) this.castling &= ~1;
         if (from === 56 || to === 56) this.castling &= ~8;
         if (from === 63 || to === 63) this.castling &= ~4;
-      }
-
-      if (cleanse) {
-        for (const s0 of cleanse) {
-          const s = (s0 === from && !(flags & F_ABSOLVE)) ? to : s0;
-          if (isGuilty(b[s]) && typeOf(b[s]) === BISHOP && colorOf(b[s]) === side) {
-            b[s] &= ~GUILT;
-            if (info) info.cleansed.push(s);
-          }
-        }
       }
 
       this.ep = flags & F_DOUBLE ? (from + to) >> 1 : -1;
@@ -400,15 +368,6 @@
       if (mFlags(m) & F_EP) return true;
       if (mFlags(m) & F_ABSOLVE) return false;
       return this.board[mTo(m)] !== 0;
-    }
-
-    /* Squares that would be absolved by this move (before making it). */
-    absolvesBy(m) {
-      const side = this.turn;
-      const info = this.make(m, true);
-      this.unmake();
-      void side;
-      return info.absolved;
     }
 
     insufficientMaterial() {
@@ -446,7 +405,7 @@
       const p = this.board[from], t = typeOf(p);
       let san;
       if (flags & F_ABSOLVE) {
-        san = 'B' + sqName(from) + '~';
+        san = 'B' + sqName(from) + '~' + (to === from ? '' : sqName(to));
       } else if (flags & F_CASTLE) {
         san = fileOf(to) === 6 ? 'O-O' : 'O-O-O';
       } else {
@@ -477,9 +436,7 @@
     }
   }
 
-  const uci = (m) => (mFlags(m) & F_ABSOLVE)
-    ? sqName(mFrom(m)) + sqName(mFrom(m))
-    : sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? PIECE_CHARS[mPromo(m)] : '');
+  const uci = (m) => sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? PIECE_CHARS[mPromo(m)] : '');
 
   /*
    * Game: a Position plus history, SAN log and result detection.
